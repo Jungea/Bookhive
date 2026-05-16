@@ -60,9 +60,6 @@ export class Bookshelf {
       if (genre) {
         g.fillStyle(GENRE_COLORS[genre] ?? DEFAULT_COLOR, 1)
         g.fillRect(bx, by, slotW - 1, rowH - 4)
-      } else {
-        g.fillStyle(0x1a1a2e, 0.5)
-        g.fillRect(bx, by, slotW - 1, rowH - 4)
       }
     })
 
