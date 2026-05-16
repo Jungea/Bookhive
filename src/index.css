@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg:     #0f0f1a;
+  --color-wall:   #2a2240;
+  --color-floor:  #3d2b1a;
+  --color-shelf:  #5c3d1e;
+  --color-accent: #FFD700;
+  --color-text:   #e0d8c8;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Courier New', monospace;
+  margin: 0;
+}
