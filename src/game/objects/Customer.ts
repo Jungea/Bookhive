@@ -1,13 +1,21 @@
 import Phaser from 'phaser'
-import { ASSETS } from '../assets'
 
 export type CustomerState = 'entering' | 'browsing' | 'leaving'
+
+// 손님 유형별 색상
+const CUSTOMER_COLORS: Record<string, number> = {
+  student:   0xf4d03f,
+  worker:    0xe8b88a,
+  webnovel:  0xaed6f1,
+  collector: 0xd5a6a6,
+}
 
 interface CustomerConfig {
   scene: Phaser.Scene
   x: number
   y: number
   targetX: number
+  customerType: string
   onReachTarget: (customer: Customer) => void
   onExit: (customer: Customer) => void
 }
@@ -15,36 +23,39 @@ interface CustomerConfig {
 const SPEED = 60
 
 export class Customer {
-  private sprite: Phaser.Physics.Arcade.Sprite
+  private container: Phaser.GameObjects.Container
   private state: CustomerState = 'entering'
   private config: CustomerConfig
+  private vx = -SPEED
 
   constructor(config: CustomerConfig) {
     this.config = config
-    const { scene, x, y } = config
+    const { scene, x, y, customerType } = config
 
-    this.sprite = scene.physics.add.sprite(x, y, ASSETS.NPC_01)
-    this.sprite.setScale(1.5)
-    this.sprite.play('npc_walk_left')
+    const color = CUSTOMER_COLORS[customerType] ?? 0xffffff
 
-    scene.physics.moveTo(this.sprite, config.targetX, y, SPEED)
+    const head = scene.add.circle(0, -18, 6, color)
+    const body = scene.add.rectangle(0, -6, 10, 16, color)
+
+    this.container = scene.add.container(x, y, [head, body])
   }
 
   update() {
-    const { sprite, config, state } = this
+    const { container, config, state } = this
 
     if (state === 'entering') {
-      if (Math.abs(sprite.x - config.targetX) < 8) {
-        const body = sprite.body as Phaser.Physics.Arcade.Body
-        body.setVelocity(0)
-        sprite.anims.stop()
+      container.x += this.vx * (1 / 60)
+      if (container.x <= config.targetX) {
+        container.x = config.targetX
+        this.vx = 0
         this.state = 'browsing'
         config.onReachTarget(this)
       }
     }
 
     if (state === 'leaving') {
-      if (sprite.x > config.scene.cameras.main.width + 32) {
+      container.x += SPEED * (1 / 60)
+      if (container.x > config.scene.cameras.main.width + 32) {
         config.onExit(this)
       }
     }
@@ -52,12 +63,10 @@ export class Customer {
 
   leave() {
     this.state = 'leaving'
-    this.sprite.play('npc_walk_right')
-    const body = this.sprite.body as Phaser.Physics.Arcade.Body
-    body.setVelocityX(SPEED)
+    this.vx = SPEED
   }
 
   destroy() {
-    this.sprite.destroy()
+    this.container.destroy()
   }
 }

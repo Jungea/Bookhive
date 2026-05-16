@@ -2,7 +2,6 @@ import Phaser from 'phaser'
 import { Bookshelf, SLOTS_PER_ROW, SHELF_ROWS } from '../objects/Bookshelf'
 import { Customer } from '../objects/Customer'
 import { generateCustomer, pickWantedGenre } from '../systems/CustomerAI'
-import { ASSETS } from '../assets'
 import type { GenreInventory } from '../../lib/types'
 
 const FLOOR_Y_RATIO = 0.65
@@ -19,7 +18,6 @@ export class MainScene extends Phaser.Scene {
 
   create() {
     this.drawBackground()
-    this.registerAnimations()
     this.placeBookshelves({ '소설': 5, '철학': 3, '판타지': 2 }, 1)
 
     this.time.addEvent({
@@ -41,25 +39,6 @@ export class MainScene extends Phaser.Scene {
     this.game.events.on('reputation-updated', (rep: number) => {
       this.currentReputation = rep
     })
-  }
-
-  private registerAnimations() {
-    if (!this.anims.exists('npc_walk_left')) {
-      this.anims.create({
-        key: 'npc_walk_left',
-        frames: this.anims.generateFrameNumbers(ASSETS.NPC_01, { start: 0, end: 2 }),
-        frameRate: 6,
-        repeat: -1,
-      })
-    }
-    if (!this.anims.exists('npc_walk_right')) {
-      this.anims.create({
-        key: 'npc_walk_right',
-        frames: this.anims.generateFrameNumbers(ASSETS.NPC_01, { start: 3, end: 5 }),
-        frameRate: 6,
-        repeat: -1,
-      })
-    }
   }
 
   private drawBackground() {
@@ -125,6 +104,7 @@ export class MainScene extends Phaser.Scene {
       x: width + 16,
       y: floorY,
       targetX,
+      customerType: profile.type,
       onReachTarget: (c) => {
         this.time.delayedCall(2000, () => {
           this.game.events.emit('customer-resolved', {
