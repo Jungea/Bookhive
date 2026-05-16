@@ -4,6 +4,8 @@ import { GameCanvas } from '../components/GameCanvas'
 import { supabase } from '../lib/supabase/client'
 import { getProfile, getGenreInventory, updateProfile } from '../lib/supabase/store'
 import { calculateOfflineEarnings } from '../game/systems/IdleLoop'
+import { calculateVisitReward } from '../game/systems/RewardSystem'
+import type { CustomerType } from '../game/systems/RewardSystem'
 import type { UserProfile, GenreInventory } from '../lib/types'
 
 export function StorePage() {
@@ -57,6 +59,29 @@ export function StorePage() {
       storeLevel: profile.store_level,
     })
   }, [profile, inventory, gameReady])
+
+  useEffect(() => {
+    const game = gameRef.current
+    if (!gameReady || !game) return
+
+    const handler = async ({ wantedGenre, customerType }: { wantedGenre: string; customerType: CustomerType }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || !profile) return
+
+      const reward = calculateVisitReward({ wantedGenre, inventory, customerType })
+      const newGold = profile.gold + reward.gold
+      const newRep  = profile.store_reputation + reward.reputation
+
+      await updateProfile(user.id, { gold: newGold, store_reputation: newRep })
+      setProfile(p => p ? { ...p, gold: newGold, store_reputation: newRep } : p)
+
+      const totalStock = Object.values(inventory).reduce((a, b) => a + b, 0)
+      game.events.emit('stats-updated', { gold: newGold, reputation: newRep, stock: totalStock })
+    }
+
+    game.events.on('customer-resolved', handler)
+    return () => { game.events.off('customer-resolved', handler) }
+  }, [gameReady, profile, inventory])
 
   return (
     <div className="flex flex-col h-full">
