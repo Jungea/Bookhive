@@ -1,5 +1,5 @@
 import { supabase } from './client'
-import type { ContentType, ProgressType, ReadingStatus } from '../types'
+import type { ContentType, ContentWithRecord, ProgressType, ReadingStatus } from '../types'
 
 export async function createContent(data: {
   type: ContentType
@@ -50,4 +50,22 @@ export async function createContent(data: {
   })
 
   return content
+}
+
+export async function getContentsWithRecords(userId: string): Promise<ContentWithRecord[]> {
+  const { data } = await supabase
+    .from('contents')
+    .select('*, reading_record:reading_records!inner(*)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (!data) return []
+
+  return data.map((row) => {
+    const { reading_record, ...content } = row as ContentWithRecord & { reading_record: ContentWithRecord['reading_record'] | ContentWithRecord['reading_record'][] }
+    return {
+      ...content,
+      reading_record: Array.isArray(reading_record) ? reading_record[0] ?? null : reading_record,
+    }
+  })
 }

@@ -53,3 +53,21 @@ export interface StoreItem {
 }
 
 export type GenreInventory = Record<string, number>
+
+export type ActivityAction = 'progress' | 'status_change' | 'review_written' | 'started' | 'completed'
+
+export interface ActivityLog {
+  id: string
+  user_id: string
+  content_id: string
+  record_id: string
+  action: ActivityAction
+  note: string | null
+  progress_snapshot: number | null
+  status_snapshot: string | null
+  logged_at: string
+}
+
+export interface ContentWithRecord extends Content {
+  reading_record: ReadingRecord | null
+}

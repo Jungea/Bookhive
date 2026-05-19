@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase/client'
 import { StorePage } from './pages/StorePage'
+import { LibraryPage } from './pages/LibraryPage'
 import { AddPage } from './pages/AddPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { LoginPage } from './pages/LoginPage'
 import './index.css'
 
-type Tab = 'store' | 'add' | 'settings'
+type Tab = 'store' | 'library' | 'add' | 'settings'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -33,8 +34,9 @@ export default function App() {
       style={{ background: 'var(--color-bg)', color: 'var(--color-text)' }}
     >
       <div className="flex-1 overflow-auto">
-        {tab === 'store'    && <StorePage />}
-        {tab === 'add'      && <AddPage onSuccess={() => setTab('store')} />}
+        {tab === 'store'   && <StorePage />}
+        {tab === 'library' && <LibraryPage />}
+        {tab === 'add'     && <AddPage onSuccess={() => setTab('library')} />}
         {tab === 'settings' && <SettingsPage />}
       </div>
 
@@ -44,6 +46,7 @@ export default function App() {
       >
         {([
           ['store',    '🏪', '서점'],
+          ['library',  '📚', '서재'],
           ['add',      '➕', '추가'],
           ['settings', '⚙️', '설정'],
         ] as const).map(([id, icon, label]) => (
