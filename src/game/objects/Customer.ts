@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { DEPTH } from '../depths'
 
 export type CustomerState = 'entering' | 'at_shelf' | 'going_to_desk' | 'at_desk' | 'leaving'
 
@@ -38,7 +39,7 @@ export class Customer {
 
     const head = scene.add.circle(0, -18, 6, color)
     const body = scene.add.rectangle(0, -6, 10, 16, color)
-    this.container = scene.add.container(x, y, [head, body]).setDepth(1)
+    this.container = scene.add.container(x, y, [head, body]).setDepth(DEPTH.CUSTOMER)
   }
 
   update() {

@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { DEPTH } from '../depths'
 
 export const SLOTS_PER_ROW = 20
 export const SHELF_ROWS    = 10
@@ -69,7 +70,7 @@ export class Bookshelf {
       }
     })
 
-    this.container = scene.add.container(x, y, [g]).setDepth(0)
+    this.container = scene.add.container(x, y, [g]).setDepth(DEPTH.FURNITURE)
   }
 
   destroy() {

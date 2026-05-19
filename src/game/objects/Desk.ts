@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { DEPTH } from '../depths'
 
 export class Desk {
   private container: Phaser.GameObjects.Container
@@ -17,7 +18,7 @@ export class Desk {
       fontStyle: 'bold',
     }).setOrigin(0.5)
 
-    this.container = scene.add.container(x, y, [g, text]).setDepth(0)
+    this.container = scene.add.container(x, y, [g, text]).setDepth(DEPTH.FURNITURE)
   }
 
   destroy() {
