@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { Bookshelf } from '../objects/Bookshelf'
 import { Customer } from '../objects/Customer'
 import { Desk } from '../objects/Desk'
+import { Librarian } from '../objects/Librarian'
 import { generateCustomer, pickWantedGenre } from '../systems/CustomerAI'
 import type { GenreInventory } from '../../lib/types'
 
@@ -32,7 +33,9 @@ export class MainScene extends Phaser.Scene {
     const zoneW = width * ZONE_W_RATIO
     const deskW = zoneW * DESK_W_FILL
     const deskH = height * DESK_H_RATIO
-    new Desk(this, (zoneW - deskW) / 2, floorY, deskW, deskH)
+    const deskX = (zoneW - deskW) / 2
+    new Desk(this, deskX, floorY, deskW, deskH)
+    new Librarian(this, deskX + deskW / 2, floorY - deskH * 0.5)
 
     this.placeBookshelves({}, 1)
 
