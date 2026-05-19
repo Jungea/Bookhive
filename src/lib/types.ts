@@ -56,6 +56,18 @@ export type GenreInventory = Record<string, number>
 
 export type ActivityAction = 'progress' | 'status_change' | 'review_written' | 'started' | 'completed'
 
+export interface Review {
+  id: string
+  user_id: string
+  content_id: string
+  title: string
+  body: string
+  rating: number
+  is_public: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface ActivityLog {
   id: string
   user_id: string

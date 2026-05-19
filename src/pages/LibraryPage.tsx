@@ -7,7 +7,7 @@ import { ProgressForm } from '../components/ProgressForm'
 import { ActivityLogTimeline } from '../components/ActivityLogTimeline'
 import type { ActivityLog, ContentWithRecord } from '../lib/types'
 
-export function LibraryPage() {
+export function LibraryPage({ onWriteReview }: { onWriteReview?: (contentId: string) => void }) {
   const [contents, setContents] = useState<ContentWithRecord[]>([])
   const [selected, setSelected] = useState<ContentWithRecord | null>(null)
   const [logs, setLogs] = useState<ActivityLog[]>([])
@@ -66,6 +66,15 @@ export function LibraryPage() {
           />
         ) : (
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>읽기 기록이 없습니다.</p>
+        )}
+
+        {record?.status === 'completed' && (
+          <button
+            onClick={() => onWriteReview?.(selected.id)}
+            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--color-accent)', background: 'none', color: 'var(--color-accent)', fontSize: '0.875rem', cursor: 'pointer', marginTop: '8px' }}
+          >
+            📝 독후감 쓰기
+          </button>
         )}
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
