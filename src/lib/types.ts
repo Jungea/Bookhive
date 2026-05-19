@@ -54,6 +54,11 @@ export interface StoreItem {
 
 export type GenreInventory = Record<string, number>
 
+export interface BookEntry {
+  genre: string        // 첫 번째 장르 (책장 색상 기준)
+  pages: number | null // 페이지 수 (책 두께 계산용)
+}
+
 export type ActivityAction = 'progress' | 'status_change' | 'review_written' | 'started' | 'completed'
 
 export interface Review {

@@ -2,16 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import Phaser from 'phaser'
 import { GameCanvas } from '../components/GameCanvas'
 import { supabase } from '../lib/supabase/client'
-import { getProfile, getGenreInventory, updateProfile } from '../lib/supabase/store'
+import { getProfile, getGenreInventory, getBookInventory, updateProfile } from '../lib/supabase/store'
 import { calculateOfflineEarnings } from '../game/systems/IdleLoop'
 import { calculateVisitReward } from '../game/systems/RewardSystem'
 import type { CustomerType } from '../game/systems/RewardSystem'
-import type { UserProfile, GenreInventory } from '../lib/types'
+import type { UserProfile, GenreInventory, BookEntry } from '../lib/types'
 
 export function StorePage() {
   const gameRef = useRef<Phaser.Game | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [inventory, setInventory] = useState<GenreInventory>({})
+  const [books, setBooks] = useState<BookEntry[]>([])
   const [gameReady, setGameReady] = useState(false)
 
   useEffect(() => {
@@ -19,9 +20,10 @@ export function StorePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const [prof, inv] = await Promise.all([
+      const [prof, inv, bookList] = await Promise.all([
         getProfile(user.id),
         getGenreInventory(user.id),
+        getBookInventory(user.id),
       ])
       if (!prof) return
 
@@ -40,6 +42,7 @@ export function StorePage() {
 
       setProfile({ ...prof, gold: newGold })
       setInventory(inv)
+      setBooks(bookList)
     }
     init()
   }, [])
@@ -55,10 +58,11 @@ export function StorePage() {
       stock: totalStock,
     })
     game.events.emit('inventory-updated', {
+      books,
       inventory,
       storeLevel: profile.store_level,
     })
-  }, [profile, inventory, gameReady])
+  }, [profile, inventory, books, gameReady])
 
   useEffect(() => {
     const game = gameRef.current

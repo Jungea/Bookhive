@@ -1,8 +1,8 @@
 import Phaser from 'phaser'
 import { DEPTH } from '../depths'
+import type { BookEntry } from '../../lib/types'
 
-export const SLOTS_PER_ROW = 20
-export const SHELF_ROWS    = 10
+export const SHELF_ROWS = 10
 
 const GENRE_COLORS: Record<string, number> = {
   '소설':     0xe74c3c,
@@ -18,6 +18,17 @@ const GENRE_COLORS: Record<string, number> = {
 }
 const DEFAULT_COLOR = 0x95a5a6
 
+// 페이지 수 → 책 너비 (px)
+const MIN_BOOK_W  = 3
+const MAX_BOOK_W  = 12
+const PAGES_PER_PX = 60
+const BOOK_GAP    = 1
+
+function calcBookWidth(pages: number | null): number {
+  if (!pages) return MIN_BOOK_W
+  return Math.min(MAX_BOOK_W, Math.max(MIN_BOOK_W, Math.round(pages / PAGES_PER_PX)))
+}
+
 interface BookshelfConfig {
   scene: Phaser.Scene
   x: number
@@ -25,7 +36,7 @@ interface BookshelfConfig {
   width: number
   height: number
   level: number
-  genres: string[]
+  books: BookEntry[]
 }
 
 export class Bookshelf {
@@ -35,8 +46,8 @@ export class Bookshelf {
   readonly width: number
 
   constructor(config: BookshelfConfig) {
-    const { scene, x, y, width, height, genres } = config
-    this.hasBooks = genres.some(g => g !== '')
+    const { scene, x, y, width, height, books } = config
+    this.hasBooks = books.length > 0
     this.x = x
     this.width = width
 
@@ -55,19 +66,36 @@ export class Bookshelf {
       g.lineBetween(0, -height + rowH * r, width, -height + rowH * r)
     }
 
-    // 책 슬롯
-    const slotW = (width - 6) / SLOTS_PER_ROW
+    // 책을 행 단위로 배치 (가변 너비)
+    const availW = width - 6
+    const rows: { genre: string; w: number }[][] = []
+    let currentRow: { genre: string; w: number }[] = []
+    let currentRowW = 0
 
-    genres.slice(0, SLOTS_PER_ROW * SHELF_ROWS).forEach((genre, i) => {
-      const row = Math.floor(i / SLOTS_PER_ROW)
-      const col = i % SLOTS_PER_ROW
-      const bx = 3 + col * slotW
-      const by = -height + 3 + row * rowH
-
-      if (genre) {
-        g.fillStyle(GENRE_COLORS[genre] ?? DEFAULT_COLOR, 1)
-        g.fillRect(bx, by, slotW - 1, rowH - 4)
+    for (const book of books) {
+      const bw = calcBookWidth(book.pages)
+      const needed = currentRow.length === 0 ? bw : bw + BOOK_GAP
+      if (currentRowW + needed > availW && currentRow.length > 0) {
+        rows.push(currentRow)
+        if (rows.length >= SHELF_ROWS) break
+        currentRow = [{ genre: book.genre, w: bw }]
+        currentRowW = bw
+      } else {
+        if (currentRow.length > 0) currentRowW += BOOK_GAP
+        currentRow.push({ genre: book.genre, w: bw })
+        currentRowW += bw
       }
+    }
+    if (currentRow.length > 0 && rows.length < SHELF_ROWS) rows.push(currentRow)
+
+    rows.forEach((row, rowIdx) => {
+      let xOff = 3
+      const by = -height + 3 + rowIdx * rowH
+      row.forEach(({ genre, w }) => {
+        g.fillStyle(GENRE_COLORS[genre] ?? DEFAULT_COLOR, 1)
+        g.fillRect(xOff, by, w, rowH - 4)
+        xOff += w + BOOK_GAP
+      })
     })
 
     this.container = scene.add.container(x, y, [g]).setDepth(DEPTH.FURNITURE)

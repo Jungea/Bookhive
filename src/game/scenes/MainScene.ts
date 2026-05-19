@@ -4,7 +4,7 @@ import { Customer } from '../objects/Customer'
 import { Desk } from '../objects/Desk'
 import { Librarian } from '../objects/Librarian'
 import { generateCustomer, pickWantedGenre } from '../systems/CustomerAI'
-import type { GenreInventory } from '../../lib/types'
+import type { GenreInventory, BookEntry } from '../../lib/types'
 
 const FLOOR_Y_RATIO = 0.75
 const ZONE_COUNT    = 4
@@ -37,7 +37,7 @@ export class MainScene extends Phaser.Scene {
     new Desk(this, deskX, floorY, deskW, deskH)
     new Librarian(this, deskX + deskW / 2, floorY - deskH * 0.5)
 
-    this.placeBookshelves({}, 1)
+    this.placeBookshelves([], {}, 1)
 
     this.time.addEvent({
       delay: 5000,
@@ -46,12 +46,11 @@ export class MainScene extends Phaser.Scene {
       loop: true,
     })
 
-    // Supabase 데이터 수신 (Task 13에서 연동)
     this.game.events.on(
       'inventory-updated',
-      ({ inventory, storeLevel }: { inventory: GenreInventory; storeLevel: number }) => {
+      ({ books, inventory, storeLevel }: { books: BookEntry[]; inventory: GenreInventory; storeLevel: number }) => {
         this.currentInventory = inventory
-        this.placeBookshelves(inventory, storeLevel)
+        this.placeBookshelves(books, inventory, storeLevel)
       }
     )
 
@@ -81,7 +80,7 @@ export class MainScene extends Phaser.Scene {
     this.floorGraphics.lineBetween(0, floorY, width, floorY)
   }
 
-  placeBookshelves(inventory: GenreInventory, storeLevel: number) {
+  placeBookshelves(books: BookEntry[], inventory: GenreInventory, storeLevel: number) {
     this.bookshelves.forEach(b => b.destroy())
     this.bookshelves = []
 
@@ -92,13 +91,11 @@ export class MainScene extends Phaser.Scene {
     const shelfW = zoneW * SHELF_W_FILL
     const shelfH = height * SHELF_H_RATIO
     const shelfPadding = (zoneW - shelfW) / 2
-    const genreList = Object.entries(inventory)
-      .flatMap(([genre, count]) => Array(count).fill(genre))
+    const BOOKS_PER_SHELF = 100
 
     for (let i = 0; i < storeLevel; i++) {
       // Zone 1은 데스크 전용 → 책장은 Zone 4부터 왼쪽으로 채움
       const x = zoneW * (ZONE_COUNT - 1 - i) + shelfPadding
-      const genres = genreList.slice(i * 50, (i + 1) * 50)
 
       this.bookshelves.push(new Bookshelf({
         scene: this,
@@ -107,7 +104,7 @@ export class MainScene extends Phaser.Scene {
         width: shelfW,
         height: shelfH,
         level: i + 1,
-        genres,
+        books: books.slice(i * BOOKS_PER_SHELF, (i + 1) * BOOKS_PER_SHELF),
       }))
     }
   }
