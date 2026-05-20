@@ -42,7 +42,7 @@ export async function getGenreInventory(userId: string): Promise<GenreInventory>
 export async function getBookInventory(userId: string): Promise<BookEntry[]> {
   const { data } = await supabase
     .from('reading_records')
-    .select('id, content_id, contents(title, genre, total_pages)')
+    .select('id, content_id, contents(title, genre, total_pages, cover_color, deleted_at)')
     .eq('user_id', userId)
     .eq('status', 'completed')
 
@@ -51,20 +51,21 @@ export async function getBookInventory(userId: string): Promise<BookEntry[]> {
   type Row = {
     id: string
     content_id: string
-    contents: { title: string; genre: string[]; total_pages: number | null }
-              | { title: string; genre: string[]; total_pages: number | null }[]
+    contents: { title: string; genre: string[]; total_pages: number | null; cover_color: string | null; deleted_at: string | null }
+              | { title: string; genre: string[]; total_pages: number | null; cover_color: string | null; deleted_at: string | null }[]
               | null
   }
   return (data as unknown as Row[]).flatMap(r => {
     const c = r.contents
     if (!c) return []
     const items = Array.isArray(c) ? c : [c]
-    return items.map(item => ({
+    return items.filter(item => !item.deleted_at).map(item => ({
       content_id: r.content_id,
       reading_record_id: r.id,
       title: item.title,
       genre: item.genre[0] ?? '기타',
       pages: item.total_pages,
+      cover_color: item.cover_color,
     }))
   })
 }

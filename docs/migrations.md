@@ -38,4 +38,12 @@ create table if not exists public.rental_records (
 alter table public.rental_records enable row level security;
 create policy "rental_records_self" on public.rental_records
   for all using (auth.uid() = user_id);
+
+-- 004: contents에 책 표지 색상 컬럼 추가 (서점 게임 렌더링용)
+alter table public.contents
+  add column if not exists cover_color text;
+
+-- 005: contents 소프트 삭제 (독후감·이력 보존)
+alter table public.contents
+  add column if not exists deleted_at timestamptz;
 ```

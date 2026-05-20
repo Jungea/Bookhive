@@ -12,6 +12,7 @@ export interface Content {
   title: string
   author: string
   cover_url: string | null
+  cover_color: string | null
   genre: string[]
   isbn: string | null
   total_pages: number | null
@@ -60,6 +61,7 @@ export interface BookEntry {
   title: string
   genre: string        // 첫 번째 장르 (책장 색상 기준)
   pages: number | null // 페이지 수 (책 두께 계산용)
+  cover_color: string | null
 }
 
 export interface RentalRecord {

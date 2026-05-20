@@ -35,7 +35,9 @@ export function ContentCard({ content, onClick }: ContentCardProps) {
       {/* 커버 */}
       <div style={{
         width: '40px', height: '56px', borderRadius: '4px', flexShrink: 0,
-        background: 'var(--color-accent)', overflow: 'hidden',
+        background: content.cover_color ?? 'transparent',
+        border: (!content.cover_color && !content.cover_url) ? '1px solid var(--color-border)' : 'none',
+        overflow: 'hidden',
       }}>
         {content.cover_url && (
           <img src={content.cover_url} alt={content.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase/client'
-import { getContentsWithRecords } from '../lib/supabase/content'
+import { getContentsWithRecords, deleteContent } from '../lib/supabase/content'
 import { getActivityLogs } from '../lib/supabase/reading-record'
 import { ContentCard } from '../components/ContentCard'
+import { ContentForm } from '../components/ContentForm'
 import { ProgressForm } from '../components/ProgressForm'
 import { ActivityLogTimeline } from '../components/ActivityLogTimeline'
 import type { ActivityLog, ContentWithRecord } from '../lib/types'
@@ -12,6 +13,7 @@ export function LibraryPage({ onWriteReview }: { onWriteReview?: (contentId: str
   const [selected, setSelected] = useState<ContentWithRecord | null>(null)
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -45,6 +47,34 @@ export function LibraryPage({ onWriteReview }: { onWriteReview?: (contentId: str
 
   if (selected) {
     const record = selected.reading_record
+
+    if (editing) {
+      return (
+        <div style={{ padding: '16px' }}>
+          <button
+            onClick={() => setEditing(false)}
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '0.875rem', marginBottom: '16px', padding: 0 }}
+          >
+            ← 취소
+          </button>
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '20px' }}>정보 수정</h2>
+          <ContentForm
+            initialData={selected}
+            onSuccess={async () => {
+              setEditing(false)
+              await load()
+              const { data: { user } } = await supabase.auth.getUser()
+              if (user) {
+                const updated = await import('../lib/supabase/content').then(m => m.getContentsWithRecords(user.id))
+                const found = updated.find(c => c.id === selected.id)
+                if (found) setSelected(found)
+              }
+            }}
+          />
+        </div>
+      )
+    }
+
     return (
       <div style={{ padding: '16px' }}>
         <button
@@ -53,7 +83,28 @@ export function LibraryPage({ onWriteReview }: { onWriteReview?: (contentId: str
         >
           ← 서재로
         </button>
-        <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '4px' }}>{selected.title}</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)' }}>{selected.title}</h2>
+          <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>
+            <button
+              onClick={() => setEditing(true)}
+              style={{ background: 'none', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '0.75rem', padding: '3px 10px', borderRadius: '6px' }}
+            >
+              수정
+            </button>
+            <button
+              onClick={async () => {
+                if (!confirm(`"${selected.title}"을(를) 삭제할까요?\n삭제하면 모든 기록이 사라집니다.`)) return
+                await deleteContent(selected.id)
+                setSelected(null)
+                await load()
+              }}
+              style={{ background: 'none', border: '1px solid #e05050', color: '#e05050', cursor: 'pointer', fontSize: '0.75rem', padding: '3px 10px', borderRadius: '6px' }}
+            >
+              삭제
+            </button>
+          </div>
+        </div>
         {selected.author && (
           <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '20px' }}>{selected.author}</p>
         )}

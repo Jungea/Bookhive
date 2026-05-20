@@ -1,7 +1,18 @@
 import { useState } from 'react'
-import { createContent } from '../lib/supabase/content'
+import { createContent, updateContent } from '../lib/supabase/content'
 import { getContentTypeLabel, getStatusLabel } from '../lib/utils'
-import type { ContentType, ProgressType, ReadingStatus } from '../lib/types'
+import type { Content, ContentType, ProgressType, ReadingStatus } from '../lib/types'
+
+const COVER_COLORS = [
+  '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71',
+  '#1abc9c', '#3498db', '#9b59b6', '#ec407a',
+  '#1a1a1a', '#ffffff', '#95a5a6',
+]
+
+function randomColor() {
+  return COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)]
+}
+
 
 const CONTENT_TYPES: ContentType[] = ['book', 'webnovel', 'indie', 'original']
 const INITIAL_STATUSES: ReadingStatus[] = ['to_read', 'reading', 'completed']
@@ -20,23 +31,65 @@ const GENRE_OPTIONS = [
 ]
 
 interface ContentFormProps {
+  initialData?: Content   // 있으면 수정 모드
   onSuccess?: () => void
 }
 
-export function ContentForm({ onSuccess }: ContentFormProps) {
-  const [type, setType] = useState<ContentType>('book')
-  const [progressType, setProgressType] = useState<ProgressType>('page')
-  const [isOngoing, setIsOngoing] = useState(false)
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
+  const isEdit = !!initialData
+
+  const [type, setType] = useState<ContentType>(initialData?.type ?? 'book')
+  const [progressType, setProgressType] = useState<ProgressType>(initialData?.progress_type ?? 'page')
+  const [isOngoing, setIsOngoing] = useState(initialData?.is_ongoing ?? false)
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(initialData?.genre ?? [])
   const [genreInput, setGenreInput] = useState('')
   const [genreOpen, setGenreOpen] = useState(false)
   const [initialStatus, setInitialStatus] = useState<ReadingStatus>('to_read')
-  const [title, setTitle] = useState('')
-  const [author, setAuthor] = useState('')
-  const [totalPages, setTotalPages] = useState('')
-  const [totalEpisodes, setTotalEpisodes] = useState('')
+  const [title, setTitle] = useState(initialData?.title ?? '')
+  const [author, setAuthor] = useState(initialData?.author ?? '')
+  const [totalPages, setTotalPages] = useState(initialData?.total_pages?.toString() ?? '')
+  const [totalEpisodes, setTotalEpisodes] = useState(initialData?.total_episodes?.toString() ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // 커버 이미지 (ContentCard 전용, ISBN 조회)
+  const [isbn, setIsbn] = useState(initialData?.isbn ?? '')
+  const [coverUrl, setCoverUrl] = useState<string | null>(initialData?.cover_url ?? null)
+  const [isbnChecking, setIsbnChecking] = useState(false)
+  const [isbnFailed, setIsbnFailed] = useState(false)
+
+  // 책 색상 (서점 게임 척추 색상) — 반드시 하나 선택
+  const [selectedColor, setSelectedColor] = useState<string>(
+    initialData?.cover_color ?? COVER_COLORS[0]
+  )
+
+
+  function resolveCoverUrl(): string | null {
+    return coverUrl ?? null
+  }
+
+  async function fetchIsbnCover() {
+    const trimmedIsbn = isbn.replace(/-/g, '').trim()
+    if (!trimmedIsbn) return
+    setIsbnChecking(true)
+    setIsbnFailed(false)
+    try {
+      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${trimmedIsbn}`)
+      const json = await res.json()
+      const thumbnail = json?.items?.[0]?.volumeInfo?.imageLinks?.thumbnail as string | undefined
+      if (thumbnail) {
+        setCoverUrl(thumbnail.replace('http://', 'https://'))
+      } else {
+        setIsbnFailed(true)
+        setCoverUrl(null)
+      }
+    } catch {
+      setIsbnFailed(true)
+      setCoverUrl(null)
+    } finally {
+      setIsbnChecking(false)
+    }
+  }
 
   const filteredGenres = GENRE_OPTIONS.filter(
     (g) => g.includes(genreInput) && !selectedGenres.includes(g)
@@ -62,23 +115,39 @@ export function ContentForm({ onSuccess }: ContentFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
+    if (!selectedColor) return
     setLoading(true)
     setError(null)
     try {
-      await createContent({
-        type,
-        progressType,
-        title: title.trim(),
-        author: author.trim(),
-        genre: selectedGenres,
-        totalPages: totalPages ? Number(totalPages) : null,
-        totalEpisodes: totalEpisodes ? Number(totalEpisodes) : null,
-        isOngoing,
-        initialStatus,
-      })
+      if (isEdit && initialData) {
+        await updateContent(initialData.id, {
+          title: title.trim(),
+          author: author.trim(),
+          genre: selectedGenres,
+          totalPages: totalPages ? Number(totalPages) : null,
+          totalEpisodes: totalEpisodes ? Number(totalEpisodes) : null,
+          isOngoing,
+          coverUrl: resolveCoverUrl(),
+          coverColor: selectedColor,
+        })
+      } else {
+        await createContent({
+          type,
+          progressType,
+          title: title.trim(),
+          author: author.trim(),
+          genre: selectedGenres,
+          totalPages: totalPages ? Number(totalPages) : null,
+          totalEpisodes: totalEpisodes ? Number(totalEpisodes) : null,
+          isOngoing,
+          initialStatus,
+          coverUrl: resolveCoverUrl(),
+          coverColor: selectedColor,
+        })
+      }
       onSuccess?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '등록 실패')
+      setError(err instanceof Error ? err.message : isEdit ? '수정 실패' : '등록 실패')
     } finally {
       setLoading(false)
     }
@@ -116,15 +185,104 @@ export function ContentForm({ onSuccess }: ContentFormProps) {
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-      {/* 콘텐츠 타입 */}
+      {/* 콘텐츠 타입 — 등록 시에만 표시 */}
+      {!isEdit && (
+        <div>
+          <label style={labelStyle}>콘텐츠 타입</label>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {CONTENT_TYPES.map((t) => (
+              <button key={t} type="button" onClick={() => handleTypeChange(t)} style={chipStyle(type === t)}>
+                {getContentTypeLabel(t)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 커버 */}
       <div>
-        <label style={labelStyle}>콘텐츠 타입</label>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {CONTENT_TYPES.map((t) => (
-            <button key={t} type="button" onClick={() => handleTypeChange(t)} style={chipStyle(type === t)}>
-              {getContentTypeLabel(t)}
-            </button>
-          ))}
+        <label style={labelStyle}>커버</label>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+
+          {/* 프리뷰 — 커버 이미지 없으면 선택한 책 색상 표시 */}
+          <div style={{
+            width: '48px', height: '68px', borderRadius: '4px', flexShrink: 0, overflow: 'hidden',
+            background: coverUrl ? 'transparent' : (selectedColor || 'transparent'),
+            border: '1px dashed var(--color-border)',
+          }}>
+            {coverUrl && (
+              <img src={coverUrl} alt="커버" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            )}
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+            {/* ISBN (book 타입만) — ContentCard 커버 이미지용 */}
+            {type === 'book' && (
+              <>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    style={{ ...inputStyle, flex: 1 }}
+                    value={isbn}
+                    onChange={(e) => { setIsbn(e.target.value); setCoverUrl(null); setIsbnFailed(false) }}
+                    placeholder="ISBN (예: 9791162540123)"
+                  />
+                  <button
+                    type="button"
+                    onClick={fetchIsbnCover}
+                    disabled={isbnChecking || !isbn.trim()}
+                    style={{
+                      padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--color-border)',
+                      background: 'var(--color-surface)', color: 'var(--color-text)',
+                      fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                      opacity: (!isbn.trim() || isbnChecking) ? 0.5 : 1,
+                    }}
+                  >
+                    {isbnChecking ? '조회 중...' : '커버 불러오기'}
+                  </button>
+                </div>
+                {isbnFailed && (
+                  <p style={{ fontSize: '0.75rem', color: '#e05050', margin: 0 }}>커버를 찾을 수 없습니다.</p>
+                )}
+                {coverUrl && (
+                  <button
+                    type="button"
+                    onClick={() => { setCoverUrl(null); setIsbnFailed(false) }}
+                    style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', fontSize: '0.75rem', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                  >
+                    × 커버 제거
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* 서점 책 색상 — 항상 표시 */}
+            <div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: '0 0 6px' }}>서점 책 색상</p>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {COVER_COLORS.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setSelectedColor(c)}
+                    style={{
+                      width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
+                      background: c, border: c === '#ffffff' ? '1px solid var(--color-border)' : 'none',
+                      outline: selectedColor === c ? '2px solid var(--color-accent)' : 'none',
+                      outlineOffset: '2px',
+                    }}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={selectedColor || '#3498db'}
+                  onChange={(e) => setSelectedColor(e.target.value)}
+                  style={{ width: '24px', height: '24px', borderRadius: '50%', border: 'none', padding: 0, cursor: 'pointer', background: 'none' }}
+                  title="직접 선택"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -272,20 +430,22 @@ export function ContentForm({ onSuccess }: ContentFormProps) {
         </>
       )}
 
-      {/* 초기 상태 */}
-      <div>
-        <label style={labelStyle} htmlFor="initial_status">초기 상태</label>
-        <select
-          id="initial_status"
-          value={initialStatus}
-          onChange={(e) => setInitialStatus(e.target.value as ReadingStatus)}
-          style={{ ...inputStyle, appearance: 'none' }}
-        >
-          {INITIAL_STATUSES.map((s) => (
-            <option key={s} value={s}>{getStatusLabel(s)}</option>
-          ))}
-        </select>
-      </div>
+      {/* 초기 상태 — 등록 시에만 표시 */}
+      {!isEdit && (
+        <div>
+          <label style={labelStyle} htmlFor="initial_status">초기 상태</label>
+          <select
+            id="initial_status"
+            value={initialStatus}
+            onChange={(e) => setInitialStatus(e.target.value as ReadingStatus)}
+            style={{ ...inputStyle, appearance: 'none' }}
+          >
+            {INITIAL_STATUSES.map((s) => (
+              <option key={s} value={s}>{getStatusLabel(s)}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {error && (
         <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>{error}</p>
@@ -301,7 +461,7 @@ export function ContentForm({ onSuccess }: ContentFormProps) {
           opacity: loading ? 0.6 : 1,
         }}
       >
-        {loading ? '등록 중...' : '등록하기'}
+        {loading ? (isEdit ? '수정 중...' : '등록 중...') : (isEdit ? '수정하기' : '등록하기')}
       </button>
     </form>
   )

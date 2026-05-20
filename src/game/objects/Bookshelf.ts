@@ -78,7 +78,7 @@ export class Bookshelf {
 
     // 책을 행 단위로 배치 (가변 너비)
     const availW = width - 6
-    type SlotInfo = { genre: string; w: number; contentId: string }
+    type SlotInfo = { w: number; contentId: string; coverColor: string | null }
     const rows: SlotInfo[][] = []
     let currentRow: SlotInfo[] = []
     let currentRowW = 0
@@ -89,11 +89,11 @@ export class Bookshelf {
       if (currentRowW + needed > availW && currentRow.length > 0) {
         rows.push(currentRow)
         if (rows.length >= SHELF_ROWS) break
-        currentRow = [{ genre: book.genre, w: bw, contentId: book.content_id }]
+        currentRow = [{ w: bw, contentId: book.content_id, coverColor: book.cover_color }]
         currentRowW = bw
       } else {
         if (currentRow.length > 0) currentRowW += BOOK_GAP
-        currentRow.push({ genre: book.genre, w: bw, contentId: book.content_id })
+        currentRow.push({ w: bw, contentId: book.content_id, coverColor: book.cover_color })
         currentRowW += bw
       }
     }
@@ -102,16 +102,22 @@ export class Bookshelf {
     rows.forEach((row, rowIdx) => {
       let xOff = 3
       const by = -height + 3 + rowIdx * rowH
-      row.forEach(({ genre, w, contentId }) => {
+      row.forEach(({ w, contentId, coverColor }) => {
         if (this.rentedIds.has(contentId)) {
           // 빈 자리 — 투명한 영역 표시
           g.fillStyle(0x2a1a0a, 0.35)
           g.fillRect(xOff, by, w, rowH - 4)
           g.lineStyle(1, 0x6b4f3a, 0.6)
           g.strokeRect(xOff, by, w, rowH - 4)
-        } else {
-          g.fillStyle(GENRE_COLORS[genre] ?? DEFAULT_COLOR, 1)
+        } else if (coverColor) {
+          const parsed = parseInt(coverColor.replace('#', ''), 16)
+          const color = isNaN(parsed) ? DEFAULT_COLOR : parsed
+          g.fillStyle(color, 1)
           g.fillRect(xOff, by, w, rowH - 4)
+        } else {
+          // 색상 없음 — 테두리만
+          g.lineStyle(1, 0x6b4f3a, 0.8)
+          g.strokeRect(xOff, by, w, rowH - 4)
         }
         xOff += w + BOOK_GAP
       })
