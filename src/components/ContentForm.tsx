@@ -9,9 +9,6 @@ const COVER_COLORS = [
   '#1a1a1a', '#ffffff', '#95a5a6',
 ]
 
-function randomColor() {
-  return COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)]
-}
 
 
 const CONTENT_TYPES: ContentType[] = ['book', 'webnovel', 'indie', 'original']
