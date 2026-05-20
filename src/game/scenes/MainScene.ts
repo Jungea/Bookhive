@@ -1,10 +1,13 @@
 import Phaser from 'phaser'
-import { Bookshelf } from '../objects/Bookshelf'
+import { Bookshelf, GENRE_COLORS, calcBookWidth } from '../objects/Bookshelf'
 import { Customer } from '../objects/Customer'
+import type { CarriedBook } from '../objects/Customer'
 import { Desk } from '../objects/Desk'
 import { Librarian } from '../objects/Librarian'
 import { generateCustomer, pickWantedGenre } from '../systems/CustomerAI'
 import type { GenreInventory, BookEntry } from '../../lib/types'
+import type { CustomerRoute } from '../objects/Customer'
+import { CUSTOMER_PROB } from '../balance'
 
 const FLOOR_Y_RATIO = 0.75
 const ZONE_COUNT    = 4
@@ -14,13 +17,16 @@ const SHELF_W_FILL  = 0.85             // 존 너비 대비 책장 너비 비율
 const DESK_W_FILL   = 0.70             // 존 너비 대비 데스크 너비 비율
 const DESK_H_RATIO  = 0.10
 
+
 export class MainScene extends Phaser.Scene {
   private wallGraphics!: Phaser.GameObjects.Graphics
   private floorGraphics!: Phaser.GameObjects.Graphics
   private bookshelves: Bookshelf[] = []
   private customers: Customer[] = []
   private currentInventory: GenreInventory = {}
+  private currentBooks: BookEntry[] = []
   private currentReputation = 0
+  private rentedContentIds: Set<string> = new Set()
 
   constructor() { super('MainScene') }
 
@@ -50,12 +56,18 @@ export class MainScene extends Phaser.Scene {
       'inventory-updated',
       ({ books, inventory, storeLevel }: { books: BookEntry[]; inventory: GenreInventory; storeLevel: number }) => {
         this.currentInventory = inventory
+        this.currentBooks = books
         this.placeBookshelves(books, inventory, storeLevel)
       }
     )
 
     this.game.events.on('reputation-updated', (rep: number) => {
       this.currentReputation = rep
+    })
+
+    this.game.events.on('book-returned', ({ contentId }: { contentId: string }) => {
+      this.rentedContentIds.delete(contentId)
+      this.bookshelves.forEach(shelf => shelf.returnBook(contentId))
     })
   }
 
@@ -122,8 +134,52 @@ export class MainScene extends Phaser.Scene {
     })
     const wantedGenre = pickWantedGenre(profile.type, this.currentInventory)
 
+    // 대여 가능한 책 = 원하는 장르 + 현재 대여 중이 아닌 책
+    const rentableBooks = wantedGenre
+      ? this.currentBooks.filter(b => b.genre === wantedGenre && !this.rentedContentIds.has(b.content_id))
+      : []
+    const hasStock = rentableBooks.length > 0
+
+    // 단계별 확률 분기
+    const willVisitShelf = Math.random() < CUSTOMER_PROB.VISIT_SHELF
+    const willRent = willVisitShelf && (hasStock ? Math.random() < CUSTOMER_PROB.RENT_WITH_STOCK : Math.random() < CUSTOMER_PROB.RENT_WITHOUT_STOCK)
+    const route: CustomerRoute = !willVisitShelf
+      ? 'exit_only'
+      : willRent
+        ? 'shelf_then_desk'
+        : 'shelf_then_exit'
+
+    // 1~3권 랜덤 선택 (가용 재고 내)
+    let selectedBooks: BookEntry[] = []
+    if (route === 'shelf_then_desk' && rentableBooks.length > 0) {
+      const r = Math.random()
+      const p4plus = CUSTOMER_PROB.TAKE_4_PLUS_BOOKS
+      const p43    = p4plus + CUSTOMER_PROB.TAKE_3_BOOKS
+      const p432   = p43   + CUSTOMER_PROB.TAKE_2_BOOKS
+      const maxAvailable = Math.min(rentableBooks.length, CUSTOMER_PROB.MAX_BOOKS)
+      const count = maxAvailable >= 4 && r < p4plus
+        ? 4 + Math.floor(Math.random() * (maxAvailable - 4 + 1))  // 4 ~ maxAvailable 랜덤
+        : rentableBooks.length >= 3 && r < p43  ? 3
+        : rentableBooks.length >= 2 && r < p432 ? 2
+        : 1
+      // 중복 없이 count권 선택
+      const shuffled = [...rentableBooks].sort(() => Math.random() - 0.5)
+      selectedBooks = shuffled.slice(0, count)
+    }
+
+    // 스폰 시점에 즉시 선점
+    for (const book of selectedBooks) {
+      this.rentedContentIds.add(book.content_id)
+    }
+
+    const carriedBooks: CarriedBook[] = selectedBooks.map(b => ({
+      color: GENRE_COLORS[b.genre] ?? 0x95a5a6,
+      thickness: calcBookWidth(b.pages),
+    }))
+
     const zoneW = width * ZONE_W_RATIO
     const deskX = zoneW * 0.5
+    const entryX = zoneW * 1.2
 
     const shelf = this.bookshelves[Math.floor(Math.random() * this.bookshelves.length)]
     const shelfX = shelf.x + Math.random() * shelf.width
@@ -132,17 +188,28 @@ export class MainScene extends Phaser.Scene {
       scene: this,
       x: -16,
       y: floorY,
+      entryX,
       shelfX,
       deskX,
       customerType: profile.type,
+      route,
+      carriedBooks,
       onAtShelf: () => {
-        // 책장 도착 — 시각 처리 예정
+        for (const book of selectedBooks) {
+          shelf.rentBook(book.content_id)
+        }
       },
       onAtDesk: (c) => {
         this.game.events.emit('customer-resolved', {
           wantedGenre: wantedGenre ?? '',
           customerType: profile.type,
         })
+        if (selectedBooks.length > 0) {
+          this.game.events.emit('books-rented', {
+            books: selectedBooks,
+            customerType: profile.type,
+          })
+        }
         void c
       },
       onExit: (c) => {

@@ -2,6 +2,12 @@ import Phaser from 'phaser'
 import { DEPTH } from '../depths'
 
 export type CustomerState = 'entering' | 'at_shelf' | 'going_to_desk' | 'at_desk' | 'leaving'
+export type CustomerRoute = 'exit_only' | 'shelf_then_exit' | 'shelf_then_desk'
+
+export interface CarriedBook {
+  color: number
+  thickness: number  // calcBookWidth(pages) 값 (3~12px)
+}
 
 const CUSTOMER_COLORS: Record<string, number> = {
   student:   0xf4d03f,
@@ -10,13 +16,18 @@ const CUSTOMER_COLORS: Record<string, number> = {
   collector: 0xd5a6a6,
 }
 
+const BOOK_LENGTH = 16  // 가로로 누운 책의 긴 면 (px)
+
 interface CustomerConfig {
   scene: Phaser.Scene
   x: number
   y: number
+  entryX: number
   shelfX: number
   deskX: number
   customerType: string
+  route: CustomerRoute
+  carriedBooks?: CarriedBook[]
   onAtShelf: (customer: Customer) => void
   onAtDesk: (customer: Customer) => void
   onExit: (customer: Customer) => void
@@ -32,7 +43,7 @@ export class Customer {
 
   constructor(config: CustomerConfig) {
     this.config = config
-    this.targetX = config.shelfX
+    this.targetX = config.route === 'exit_only' ? config.entryX : config.shelfX
 
     const { scene, x, y, customerType } = config
     const color = CUSTOMER_COLORS[customerType] ?? 0xffffff
@@ -65,16 +76,50 @@ export class Customer {
     }
   }
 
+  private showCarriedBooks() {
+    const books = this.config.carriedBooks
+    if (!books?.length) return
+
+    const g = this.config.scene.add.graphics()
+
+    // 가장 아래 책이 머리 바로 위 (-28)에서 시작, 위로 쌓임
+    let yBottom = -28
+    for (const book of books) {
+      const t = book.thickness
+      g.fillStyle(book.color, 1)
+      g.fillRect(-BOOK_LENGTH / 2, yBottom - t, BOOK_LENGTH, t)
+      g.lineStyle(0.5, 0x000000, 0.6)
+      g.strokeRect(-BOOK_LENGTH / 2, yBottom - t, BOOK_LENGTH, t)
+      // 책 내지 선
+      g.lineStyle(0.5, 0xffffff, 0.3)
+      g.lineBetween(-BOOK_LENGTH / 2 + 2, yBottom - t + 1, -BOOK_LENGTH / 2 + 2, yBottom - 1)
+      yBottom -= t + 1
+    }
+
+    this.container.add(g)
+  }
+
   private onReachTarget() {
     const { config } = this
 
     if (this.state === 'entering') {
-      this.state = 'at_shelf'
-      config.onAtShelf(this)
-      config.scene.time.delayedCall(2000, () => {
-        this.targetX = config.deskX
-        this.state = 'going_to_desk'
-      })
+      if (config.route === 'exit_only') {
+        config.scene.time.delayedCall(800, () => {
+          this.state = 'leaving'
+        })
+      } else {
+        this.state = 'at_shelf'
+        config.onAtShelf(this)
+        config.scene.time.delayedCall(2000, () => {
+          if (config.route === 'shelf_then_desk') {
+            this.showCarriedBooks()
+            this.targetX = config.deskX
+            this.state = 'going_to_desk'
+          } else {
+            this.state = 'leaving'
+          }
+        })
+      }
     } else if (this.state === 'going_to_desk') {
       this.state = 'at_desk'
       config.onAtDesk(this)

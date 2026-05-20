@@ -4,7 +4,7 @@ import type { BookEntry } from '../../lib/types'
 
 export const SHELF_ROWS = 10
 
-const GENRE_COLORS: Record<string, number> = {
+export const GENRE_COLORS: Record<string, number> = {
   '소설':     0xe74c3c,
   '철학':     0x3498db,
   '경제':     0x2ecc71,
@@ -18,13 +18,12 @@ const GENRE_COLORS: Record<string, number> = {
 }
 const DEFAULT_COLOR = 0x95a5a6
 
-// 페이지 수 → 책 너비 (px)
 const MIN_BOOK_W  = 3
 const MAX_BOOK_W  = 12
 const PAGES_PER_PX = 60
 const BOOK_GAP    = 1
 
-function calcBookWidth(pages: number | null): number {
+export function calcBookWidth(pages: number | null): number {
   if (!pages) return MIN_BOOK_W
   return Math.min(MAX_BOOK_W, Math.max(MIN_BOOK_W, Math.round(pages / PAGES_PER_PX)))
 }
@@ -32,7 +31,7 @@ function calcBookWidth(pages: number | null): number {
 interface BookshelfConfig {
   scene: Phaser.Scene
   x: number
-  y: number      // 바닥 기준 y
+  y: number
   width: number
   height: number
   level: number
@@ -41,17 +40,28 @@ interface BookshelfConfig {
 
 export class Bookshelf {
   private container: Phaser.GameObjects.Container
+  private g: Phaser.GameObjects.Graphics
+  private rentedIds: Set<string> = new Set()
+  private config: BookshelfConfig
   readonly hasBooks: boolean
   readonly x: number
   readonly width: number
 
   constructor(config: BookshelfConfig) {
-    const { scene, x, y, width, height, books } = config
-    this.hasBooks = books.length > 0
-    this.x = x
-    this.width = width
+    this.config = config
+    this.hasBooks = config.books.length > 0
+    this.x = config.x
+    this.width = config.width
 
-    const g = scene.add.graphics()
+    this.g = config.scene.add.graphics()
+    this.container = config.scene.add.container(config.x, config.y, [this.g]).setDepth(DEPTH.FURNITURE)
+    this.redraw()
+  }
+
+  private redraw() {
+    const { width, height, books } = this.config
+    const g = this.g
+    g.clear()
 
     // 책장 외곽
     g.fillStyle(0x3d2b1a)
@@ -68,8 +78,9 @@ export class Bookshelf {
 
     // 책을 행 단위로 배치 (가변 너비)
     const availW = width - 6
-    const rows: { genre: string; w: number }[][] = []
-    let currentRow: { genre: string; w: number }[] = []
+    type SlotInfo = { genre: string; w: number; contentId: string }
+    const rows: SlotInfo[][] = []
+    let currentRow: SlotInfo[] = []
     let currentRowW = 0
 
     for (const book of books) {
@@ -78,11 +89,11 @@ export class Bookshelf {
       if (currentRowW + needed > availW && currentRow.length > 0) {
         rows.push(currentRow)
         if (rows.length >= SHELF_ROWS) break
-        currentRow = [{ genre: book.genre, w: bw }]
+        currentRow = [{ genre: book.genre, w: bw, contentId: book.content_id }]
         currentRowW = bw
       } else {
         if (currentRow.length > 0) currentRowW += BOOK_GAP
-        currentRow.push({ genre: book.genre, w: bw })
+        currentRow.push({ genre: book.genre, w: bw, contentId: book.content_id })
         currentRowW += bw
       }
     }
@@ -91,14 +102,31 @@ export class Bookshelf {
     rows.forEach((row, rowIdx) => {
       let xOff = 3
       const by = -height + 3 + rowIdx * rowH
-      row.forEach(({ genre, w }) => {
-        g.fillStyle(GENRE_COLORS[genre] ?? DEFAULT_COLOR, 1)
-        g.fillRect(xOff, by, w, rowH - 4)
+      row.forEach(({ genre, w, contentId }) => {
+        if (this.rentedIds.has(contentId)) {
+          // 빈 자리 — 투명한 영역 표시
+          g.fillStyle(0x2a1a0a, 0.35)
+          g.fillRect(xOff, by, w, rowH - 4)
+          g.lineStyle(1, 0x6b4f3a, 0.6)
+          g.strokeRect(xOff, by, w, rowH - 4)
+        } else {
+          g.fillStyle(GENRE_COLORS[genre] ?? DEFAULT_COLOR, 1)
+          g.fillRect(xOff, by, w, rowH - 4)
+        }
         xOff += w + BOOK_GAP
       })
     })
+  }
 
-    this.container = scene.add.container(x, y, [g]).setDepth(DEPTH.FURNITURE)
+  rentBook(contentId: string) {
+    this.rentedIds.add(contentId)
+    this.redraw()
+  }
+
+  returnBook(contentId: string) {
+    if (!this.rentedIds.has(contentId)) return
+    this.rentedIds.delete(contentId)
+    this.redraw()
   }
 
   destroy() {
