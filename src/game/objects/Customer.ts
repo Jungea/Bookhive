@@ -48,7 +48,7 @@ export class Customer {
     const { scene, x, y, customerType } = config
     const color = CUSTOMER_COLORS[customerType] ?? 0xffffff
 
-    const head = scene.add.circle(0, -18, 6, color)
+    const head = scene.add.circle(0, -18, 6, 0xf5cba7)
     const body = scene.add.rectangle(0, -6, 10, 16, color)
     this.container = scene.add.container(x, y, [head, body]).setDepth(DEPTH.CUSTOMER)
   }
