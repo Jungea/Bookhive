@@ -18,6 +18,7 @@ export function StorePage() {
   const [books, setBooks] = useState<BookEntry[]>([])
   const [gameReady, setGameReady] = useState(false)
   const [rentals, setRentals] = useState<RentalRecord[]>([])
+  const rentalsRef = useRef<RentalRecord[]>([])
 
   useEffect(() => {
     async function init() {
@@ -48,6 +49,7 @@ export function StorePage() {
       setProfile({ ...prof, gold: newGold })
       setInventory(inv)
       setBooks(bookList)
+      rentalsRef.current = activeRentals
       setRentals(activeRentals)
     }
     init()
@@ -62,6 +64,7 @@ export function StorePage() {
       books,
       inventory,
       storeLevel: profile.store_level,
+      rentedContentIds: rentalsRef.current.map(r => r.content_id),
     })
   }, [books, inventory, gameReady]) // eslint-disable-line react-hooks/exhaustive-deps
 

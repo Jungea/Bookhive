@@ -39,7 +39,7 @@ export class MainScene extends Phaser.Scene {
     const zoneW = width * ZONE_W_RATIO
     const deskW = zoneW * DESK_W_FILL
     const deskH = height * DESK_H_RATIO
-    const deskX = (zoneW - deskW) / 2
+    const deskX = zoneW + (zoneW - deskW) / 2
     new Desk(this, deskX, floorY, deskW, deskH)
     new Librarian(this, deskX + deskW / 2, floorY - deskH * 0.5)
 
@@ -54,9 +54,17 @@ export class MainScene extends Phaser.Scene {
 
     this.game.events.on(
       'inventory-updated',
-      ({ books, inventory, storeLevel }: { books: BookEntry[]; inventory: GenreInventory; storeLevel: number }) => {
+      ({ books, inventory, storeLevel, rentedContentIds }: {
+        books: BookEntry[]
+        inventory: GenreInventory
+        storeLevel: number
+        rentedContentIds?: string[]
+      }) => {
         this.currentInventory = inventory
         this.currentBooks = books
+        if (rentedContentIds) {
+          this.rentedContentIds = new Set(rentedContentIds)
+        }
         this.placeBookshelves(books, inventory, storeLevel)
       }
     )
@@ -119,6 +127,11 @@ export class MainScene extends Phaser.Scene {
         books: books.slice(i * BOOKS_PER_SHELF, (i + 1) * BOOKS_PER_SHELF),
       }))
     }
+
+    // 새로고침 후 대여 중인 책 빈 자리 복원
+    this.rentedContentIds.forEach(id => {
+      this.bookshelves.forEach(shelf => shelf.rentBook(id))
+    })
   }
 
   private spawnCustomer() {
@@ -178,7 +191,7 @@ export class MainScene extends Phaser.Scene {
     }))
 
     const zoneW = width * ZONE_W_RATIO
-    const deskX = zoneW * 0.5
+    const deskX = zoneW * 1.5
     const entryX = zoneW * 1.2
 
     const shelf = this.bookshelves[Math.floor(Math.random() * this.bookshelves.length)]
