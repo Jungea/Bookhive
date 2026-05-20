@@ -51,7 +51,7 @@ export default function App() {
         style={{ borderColor: 'var(--color-shelf)' }}
       >
         {([
-          ['store',    '🏪', '서점'],
+          ['store',    '🏪', '도서관'],
           ['library',  '📚', '서재'],
           ['add',      '➕', '추가'],
           ['reviews',  '📝', '독후감'],

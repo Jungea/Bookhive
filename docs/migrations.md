@@ -39,7 +39,7 @@ alter table public.rental_records enable row level security;
 create policy "rental_records_self" on public.rental_records
   for all using (auth.uid() = user_id);
 
--- 004: contents에 책 표지 색상 컬럼 추가 (서점 게임 렌더링용)
+-- 004: contents에 책 표지 색상 컬럼 추가 (도서관 게임 렌더링용)
 alter table public.contents
   add column if not exists cover_color text;
 

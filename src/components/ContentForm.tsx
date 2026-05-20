@@ -58,7 +58,7 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
   const [isbnChecking, setIsbnChecking] = useState(false)
   const [isbnFailed, setIsbnFailed] = useState(false)
 
-  // 책 색상 (서점 게임 척추 색상) — 반드시 하나 선택
+  // 책 색상 (도서관 게임 척추 색상) — 반드시 하나 선택
   const [selectedColor, setSelectedColor] = useState<string>(
     initialData?.cover_color ?? COVER_COLORS[0]
   )
@@ -256,9 +256,9 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
               </>
             )}
 
-            {/* 서점 책 색상 — 항상 표시 */}
+            {/* 도서관 책 색상 — 항상 표시 */}
             <div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: '0 0 6px' }}>서점 책 색상</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: '0 0 6px' }}>도서관 책 색상</p>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                 {COVER_COLORS.map(c => (
                   <button
