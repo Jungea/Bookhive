@@ -19,7 +19,10 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_, session) => setUser(session?.user ?? null)
+      (event, session) => {
+        setUser(session?.user ?? null)
+        if (event === 'SIGNED_IN') setTab('store')
+      }
     )
     return () => subscription.unsubscribe()
   }, [])
