@@ -162,26 +162,46 @@ export default function App() {
         <div className="flex-1 overflow-auto" style={{ position: 'relative' }}>
           {pages}
           {dimOverlay}
-        </div>
-        <nav
-          className="flex border-t text-xs"
-          style={{ borderColor: 'var(--color-shelf)' }}
-        >
-          {NAV_ITEMS.map(({ path: itemPath, icon, label }) => (
+          {path === '/' && (
             <button
-              key={itemPath}
-              onClick={() => navigateTo(itemPath)}
-              className="flex-1 py-3 flex flex-col items-center gap-1"
+              onClick={() => navigateTo('/library')}
               style={{
-                color: path === itemPath ? 'var(--color-accent)' : 'var(--color-text)',
-                opacity: path === itemPath ? 1 : 0.5,
+                position: 'absolute', bottom: '16px', right: '16px',
+                width: '44px', height: '44px', borderRadius: '50%',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-shelf)',
+                color: 'var(--color-text)',
+                fontSize: '1.25rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 20,
               }}
             >
-              <span className="text-lg">{icon}</span>
-              <span>{label}</span>
+              📚
             </button>
-          ))}
-        </nav>
+          )}
+        </div>
+        {path !== '/' && (
+          <nav
+            className="flex border-t text-xs"
+            style={{ borderColor: 'var(--color-shelf)' }}
+          >
+            {NAV_ITEMS.map(({ path: itemPath, icon, label }) => (
+              <button
+                key={itemPath}
+                onClick={() => navigateTo(itemPath)}
+                className="flex-1 py-3 flex flex-col items-center gap-1"
+                style={{
+                  color: path === itemPath ? 'var(--color-accent)' : 'var(--color-text)',
+                  opacity: path === itemPath ? 1 : 0.5,
+                }}
+              >
+                <span className="text-lg">{icon}</span>
+                <span>{label}</span>
+              </button>
+            ))}
+          </nav>
+        )}
     </div>
   )
 }
