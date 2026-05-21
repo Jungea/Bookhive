@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, forwardRef } from 'react'
+import type { ReactNode } from 'react'
 import Phaser from 'phaser'
 import { createPhaserConfig } from '../game/config'
 
 interface Props {
   onGameReady?: (game: Phaser.Game) => void
+  children?: ReactNode
 }
 
 const RATIO = 9 / 20
@@ -18,15 +20,24 @@ function calcSize(availW: number, availH: number) {
   return { w, h }
 }
 
-export function GameCanvas({ onGameReady }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null)
+export const GameCanvas = forwardRef<HTMLDivElement, Props>(({ onGameReady, children }, ref) => {
+  const divRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<Phaser.Game | null>(null)
 
+  function setRef(el: HTMLDivElement | null) {
+    (divRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+    if (typeof ref === 'function') ref(el)
+    else if (ref) ref.current = el
+  }
+
   useEffect(() => {
-    if (!containerRef.current || gameRef.current) return
-    const el = containerRef.current
+    if (!divRef.current || gameRef.current) return
+    const el = divRef.current
     const parent = el.parentElement!
-    const { w, h } = calcSize(parent.clientWidth, parent.clientHeight)
+    const cs = getComputedStyle(parent)
+    const availW = parent.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+    const availH = parent.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+    const { w, h } = calcSize(availW, availH)
     el.style.width = `${w}px`
     el.style.height = `${h}px`
 
@@ -38,11 +49,12 @@ export function GameCanvas({ onGameReady }: Props) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!containerRef.current) return
-    const el = containerRef.current
+    if (!divRef.current) return
+    const el = divRef.current
     const parent = el.parentElement!
-    const observer = new ResizeObserver(() => {
-      const { w, h } = calcSize(parent.clientWidth, parent.clientHeight)
+    const observer = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect
+      const { w, h } = calcSize(width, height)
       el.style.width = `${w}px`
       el.style.height = `${h}px`
       gameRef.current?.scale.resize(w, h)
@@ -51,5 +63,11 @@ export function GameCanvas({ onGameReady }: Props) {
     return () => observer.disconnect()
   }, [])
 
-  return <div ref={containerRef} style={{ width: '100%' }} />
-}
+  return (
+    <div ref={setRef} style={{ flexShrink: 0, position: 'relative' }}>
+      {children}
+    </div>
+  )
+})
+
+GameCanvas.displayName = 'GameCanvas'
