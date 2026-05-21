@@ -53,6 +53,7 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
   const [isbn, setIsbn] = useState(initialData?.isbn ?? '')
   const [coverUrl, setCoverUrl] = useState<string | null>(initialData?.cover_url ?? null)
   const [coverLoadFailed, setCoverLoadFailed] = useState(false)
+  const [isbnSearching, setIsbnSearching] = useState(false)
 
   // 책 색상 (도서관 게임 척추 색상) — 반드시 하나 선택
   const [selectedColor, setSelectedColor] = useState<string>(
@@ -64,12 +65,29 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
     return coverUrl ?? null
   }
 
-  function handleIsbnSearch() {
+  async function handleIsbnSearch() {
     const trimmed = isbn.replace(/-/g, '').replace(/\s/g, '').trim()
     if (!trimmed) return
     setIsbn(trimmed)
     setCoverLoadFailed(false)
-    setCoverUrl(`https://covers.openlibrary.org/b/isbn/${trimmed}-M.jpg?default=false`)
+    setCoverUrl(null)
+    setIsbnSearching(true)
+    try {
+      const res = await fetch(`/api/books?isbn=${encodeURIComponent(trimmed)}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.title && !title) setTitle(data.title)
+        if (data.author && !author) setAuthor(data.author)
+        if (data.thumbnail) setCoverUrl(data.thumbnail)
+        else setCoverLoadFailed(true)
+      } else {
+        setCoverLoadFailed(true)
+      }
+    } catch {
+      setCoverLoadFailed(true)
+    } finally {
+      setIsbnSearching(false)
+    }
   }
 
   const filteredGenres = GENRE_OPTIONS.filter(
@@ -238,16 +256,16 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
                   <button
                     type="button"
                     onClick={handleIsbnSearch}
-                    disabled={!isbn.trim()}
+                    disabled={!isbn.trim() || isbnSearching}
                     style={{
                       padding: '8px 10px', borderRadius: '0 6px 6px 0',
                       border: '1px solid var(--color-border)', borderLeft: 'none',
                       background: 'var(--color-surface)', color: 'var(--color-text)',
                       fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                      opacity: !isbn.trim() ? 0.5 : 1,
+                      opacity: (!isbn.trim() || isbnSearching) ? 0.5 : 1,
                     }}
                   >
-                    커버 불러오기
+                    {isbnSearching ? '조회 중...' : '불러오기'}
                   </button>
                 </div>
                 {coverLoadFailed && (
