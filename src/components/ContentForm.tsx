@@ -76,8 +76,8 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
       const res = await fetch(`/api/books?isbn=${encodeURIComponent(trimmed)}`)
       if (res.ok) {
         const data = await res.json()
-        if (data.title && !title) setTitle(data.title)
-        if (data.author && !author) setAuthor(data.author)
+        if (data.title) setTitle(data.title)
+        if (data.author) setAuthor(data.author)
         if (data.thumbnail) setCoverUrl(data.thumbnail)
         else setCoverLoadFailed(true)
       } else {
