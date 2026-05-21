@@ -36,3 +36,5 @@ coverage/
 
 # Superpowers
 .superpowers/
+.vercel
+.env*.local

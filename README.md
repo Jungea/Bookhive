@@ -42,10 +42,13 @@ npm install
 
 # 2. 환경 변수 설정
 cp .env.local.example .env.local
-# .env.local 에 Supabase URL과 anon key 입력
+# .env.local 에 Supabase URL, anon key, Kakao API 키 입력
 
 # 3. 개발 서버 실행
 npm run dev
+
+# API 기능(ISBN 검색 등) 테스트 시 별도 터미널에서 추가 실행 (Vercel CLI 필요: npm i -g vercel)
+vercel dev
 ```
 
 ## Supabase 설정
@@ -67,6 +70,7 @@ Supabase 대시보드 → SQL Editor에서 `docs/migrations.md`의 SQL을 순서
 
 ```bash
 npm run dev          # 개발 서버
+vercel dev           # API 라우트 서버 (ISBN 검색 등 API 테스트 시 함께 실행)
 npm run build        # 타입 체크 + 프로덕션 빌드
 npm run preview      # 빌드 결과 로컬 미리보기
 npm test             # 테스트 1회 실행

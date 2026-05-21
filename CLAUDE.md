@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev          # Start Vite dev server
+npm run dev          # Start Vite dev server (일반 개발)
+vercel dev           # Start API routes server on :3000 (ISBN 검색 등 API 테스트 시 npm run dev와 함께 실행)
 npm run build        # Type-check + production build (output: /dist)
 npm run preview      # Preview production build
 npm test             # Run Vitest once
@@ -24,6 +25,7 @@ Create a `.env.local` file at the project root:
 ```
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
+KAKAO_BOOK_API_KEY=...
 ```
 
 Supabase migrations are documented in `/docs/migrations.md`.
