@@ -21,7 +21,7 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
 
 export async function updateProfile(
   userId: string,
-  updates: Partial<Pick<UserProfile, 'gold' | 'store_level' | 'store_reputation' | 'last_online_at' | 'theme_id'>>
+  updates: Partial<Pick<UserProfile, 'gold' | 'store_level' | 'store_reputation' | 'last_online_at' | 'theme_id' | 'store_name'>>
 ): Promise<void> {
   await supabase.from('user_profiles').update(updates).eq('user_id', userId)
 }
