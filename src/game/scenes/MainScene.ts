@@ -137,7 +137,7 @@ export class MainScene extends Phaser.Scene {
   private spawnCustomer() {
     const { width, height } = this.cameras.main
     const floorTop = height * FLOOR_Y_RATIO
-    const floorY = floorTop + Math.random() * (height - floorTop - 20)
+    const floorY = floorTop + Math.random() * (height - floorTop - 40)
 
     if (this.bookshelves.length === 0) return
 
