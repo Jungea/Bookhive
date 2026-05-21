@@ -187,7 +187,7 @@ export function LibraryPage({ onWriteReview }: { onWriteReview?: (contentId: str
       {contents.length === 0 ? (
         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>등록된 콘텐츠가 없습니다.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {contents.map((c) => (
             <ContentCard key={c.id} content={c} onClick={() => selectContent(c)} />
           ))}

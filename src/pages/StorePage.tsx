@@ -167,7 +167,7 @@ export function StorePage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <GameCanvas onGameReady={g => { gameRef.current = g; setGameReady(true) }} />
         {showRentalPanel && (
           <RentalOverlay

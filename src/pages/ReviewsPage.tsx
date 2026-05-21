@@ -71,7 +71,7 @@ export function ReviewsPage() {
         {!selectedContentId ? (
           <div>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '12px' }}>어떤 책의 독후감인가요?</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {contents.map((c) => (
                 <button
                   key={c.id}
@@ -183,7 +183,7 @@ export function ReviewsPage() {
       {reviews.length === 0 ? (
         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>작성한 독후감이 없습니다.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {reviews.map((r) => (
             <button
               key={r.id}

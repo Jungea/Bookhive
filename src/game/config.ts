@@ -9,11 +9,11 @@ export function createPhaserConfig(parent: HTMLElement): Phaser.Types.Core.GameC
     type: Phaser.AUTO,
     parent,
     width: parent.clientWidth || 480,
-    height: 300,
+    height: parent.clientHeight || 480,
     backgroundColor: '#0f0f1a',
     pixelArt: true,
     scale: {
-      mode: Phaser.Scale.FIT,
+      mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     physics: {
