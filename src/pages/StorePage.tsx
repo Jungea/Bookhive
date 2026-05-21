@@ -166,15 +166,25 @@ export function StorePage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         <GameCanvas onGameReady={g => { gameRef.current = g; setGameReady(true) }} />
+        {!profile && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'var(--color-bg)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexDirection: 'column', gap: '12px',
+          }}>
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              border: '3px solid var(--color-shelf)',
+              borderTopColor: 'var(--color-accent)',
+              animation: 'spin 0.8s linear infinite',
+            }} />
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>도서관 불러오는 중...</span>
+          </div>
+        )}
       </div>
-
-      {!profile && (
-        <p className="p-3 text-xs opacity-50" style={{ color: 'var(--color-text)' }}>
-          로딩 중...
-        </p>
-      )}
     </div>
   )
 }

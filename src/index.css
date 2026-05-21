@@ -12,6 +12,10 @@
   --color-text-muted: #a09080;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
