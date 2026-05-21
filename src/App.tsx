@@ -62,7 +62,7 @@ export default function App() {
   }
 
   if (!user) return (
-    <div className="h-screen" style={{ background: 'var(--color-bg)' }}>
+    <div style={{ height: '100dvh', background: 'var(--color-bg)' }}>
       <LoginPage />
     </div>
   )
@@ -132,7 +132,7 @@ export default function App() {
           display: 'grid',
           gridTemplateRows: 'auto 1fr',
           width: '100%',
-          height: '100vh',
+          height: '100dvh',
           background: 'var(--color-bg)',
           color: 'var(--color-text)',
         }}
@@ -156,8 +156,8 @@ export default function App() {
 
   return (
     <div
-      className="flex flex-col h-screen"
-      style={{ background: 'var(--color-bg)', color: 'var(--color-text)' }}
+      className="flex flex-col"
+      style={{ height: '100dvh', background: 'var(--color-bg)', color: 'var(--color-text)' }}
     >
         <div className="flex-1 overflow-auto" style={{ position: 'relative' }}>
           {pages}
