@@ -83,6 +83,15 @@ Genre inventory (used to determine which bookshelves have stock) is derived by q
 
 Tests cover the three game systems (`CustomerAI`, `RewardSystem`, `IdleLoop`). The test environment is `jsdom` (configured in `vite.config.ts`). Phaser is not initialized in tests — systems are tested as plain TypeScript modules.
 
+## Documentation
+
+### 커밋 전 문서 점검
+커밋을 요청받으면 실제 커밋 전에 아래 두 파일의 갱신 필요 여부를 먼저 확인하고 사용자에게 알린다.
+사용자가 반영을 요청할 경우에만 문서를 수정한 뒤 커밋을 진행한다.
+
+- **`docs/domains/`** — DB 스키마 또는 비즈니스 규칙이 변경된 경우 (테이블 추가·컬럼 변경·규칙 변경)
+- **`docs/migrations.md`** — 테이블 생성·컬럼 추가·기본값 변경 등 DDL 변경이 있는 경우
+
 ## Deployment
 
 Deployed on Vercel. `vercel.json` rewrites all routes to `/` for SPA support. TypeScript strict mode is enabled (`tsconfig.app.json`); the build will fail on unused locals/parameters.
