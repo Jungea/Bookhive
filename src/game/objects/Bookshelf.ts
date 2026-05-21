@@ -4,20 +4,6 @@ import type { BookEntry } from '../../lib/types'
 
 export const SHELF_ROWS = 10
 
-export const GENRE_COLORS: Record<string, number> = {
-  '소설':     0xe74c3c,
-  '철학':     0x3498db,
-  '경제':     0x2ecc71,
-  '판타지':   0x9b59b6,
-  '인문학':   0xe67e22,
-  'SF':       0x1abc9c,
-  '역사':     0xf39c12,
-  '에세이':   0xec407a,
-  '자기계발': 0x26c6da,
-  '로맨스':   0xff80ab,
-}
-const DEFAULT_COLOR = 0x95a5a6
-
 const MIN_BOOK_W  = 3
 const MAX_BOOK_W  = 12
 const PAGES_PER_PX = 60
@@ -111,11 +97,14 @@ export class Bookshelf {
           g.strokeRect(xOff, by, w, rowH - 4)
         } else if (coverColor) {
           const parsed = parseInt(coverColor.replace('#', ''), 16)
-          const color = isNaN(parsed) ? DEFAULT_COLOR : parsed
-          g.fillStyle(color, 1)
-          g.fillRect(xOff, by, w, rowH - 4)
+          if (!isNaN(parsed)) {
+            g.fillStyle(parsed, 1)
+            g.fillRect(xOff, by, w, rowH - 4)
+          } else {
+            g.lineStyle(1, 0x6b4f3a, 0.8)
+            g.strokeRect(xOff, by, w, rowH - 4)
+          }
         } else {
-          // 색상 없음 — 테두리만
           g.lineStyle(1, 0x6b4f3a, 0.8)
           g.strokeRect(xOff, by, w, rowH - 4)
         }

@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { Bookshelf, GENRE_COLORS, calcBookWidth } from '../objects/Bookshelf'
+import { Bookshelf, calcBookWidth } from '../objects/Bookshelf'
 import { Customer } from '../objects/Customer'
 import type { CarriedBook } from '../objects/Customer'
 import { Desk } from '../objects/Desk'
@@ -186,7 +186,7 @@ export class MainScene extends Phaser.Scene {
     }
 
     const carriedBooks: CarriedBook[] = selectedBooks.map(b => ({
-      color: GENRE_COLORS[b.genre] ?? 0x95a5a6,
+      color: parseInt(b.cover_color!.replace('#', ''), 16),
       thickness: calcBookWidth(b.pages),
     }))
 
