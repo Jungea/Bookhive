@@ -49,11 +49,10 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // 커버 이미지 (ContentCard 전용, ISBN 조회)
+  // 커버 이미지 (ContentCard 전용, ISBN 기반 Open Library)
   const [isbn, setIsbn] = useState(initialData?.isbn ?? '')
   const [coverUrl, setCoverUrl] = useState<string | null>(initialData?.cover_url ?? null)
-  const [isbnChecking, setIsbnChecking] = useState(false)
-  const [isbnFailed, setIsbnFailed] = useState(false)
+  const [coverLoadFailed, setCoverLoadFailed] = useState(false)
 
   // 책 색상 (도서관 게임 척추 색상) — 반드시 하나 선택
   const [selectedColor, setSelectedColor] = useState<string>(
@@ -65,27 +64,12 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
     return coverUrl ?? null
   }
 
-  async function fetchIsbnCover() {
-    const trimmedIsbn = isbn.replace(/-/g, '').trim()
-    if (!trimmedIsbn) return
-    setIsbnChecking(true)
-    setIsbnFailed(false)
-    try {
-      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${trimmedIsbn}`)
-      const json = await res.json()
-      const thumbnail = json?.items?.[0]?.volumeInfo?.imageLinks?.thumbnail as string | undefined
-      if (thumbnail) {
-        setCoverUrl(thumbnail.replace('http://', 'https://'))
-      } else {
-        setIsbnFailed(true)
-        setCoverUrl(null)
-      }
-    } catch {
-      setIsbnFailed(true)
-      setCoverUrl(null)
-    } finally {
-      setIsbnChecking(false)
-    }
+  function handleIsbnSearch() {
+    const trimmed = isbn.replace(/-/g, '').replace(/\s/g, '').trim()
+    if (!trimmed) return
+    setIsbn(trimmed)
+    setCoverLoadFailed(false)
+    setCoverUrl(`https://covers.openlibrary.org/b/isbn/${trimmed}-M.jpg?default=false`)
   }
 
   const filteredGenres = GENRE_OPTIONS.filter(
@@ -207,51 +191,12 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
             background: coverUrl ? 'transparent' : (selectedColor || 'transparent'),
             border: '1px dashed var(--color-border)',
           }}>
-            {coverUrl && (
-              <img src={coverUrl} alt="커버" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {coverUrl && !coverLoadFailed && (
+              <img src={coverUrl} alt="커버" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => { setCoverLoadFailed(true); setCoverUrl(null) }} />
             )}
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-
-            {/* ISBN (book 타입만) — ContentCard 커버 이미지용 */}
-            {type === 'book' && (
-              <>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    style={{ ...inputStyle, flex: 1 }}
-                    value={isbn}
-                    onChange={(e) => { setIsbn(e.target.value); setCoverUrl(null); setIsbnFailed(false) }}
-                    placeholder="ISBN (예: 9791162540123)"
-                  />
-                  <button
-                    type="button"
-                    onClick={fetchIsbnCover}
-                    disabled={isbnChecking || !isbn.trim()}
-                    style={{
-                      padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--color-border)',
-                      background: 'var(--color-surface)', color: 'var(--color-text)',
-                      fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                      opacity: (!isbn.trim() || isbnChecking) ? 0.5 : 1,
-                    }}
-                  >
-                    {isbnChecking ? '조회 중...' : '커버 불러오기'}
-                  </button>
-                </div>
-                {isbnFailed && (
-                  <p style={{ fontSize: '0.75rem', color: '#e05050', margin: 0 }}>커버를 찾을 수 없습니다.</p>
-                )}
-                {coverUrl && (
-                  <button
-                    type="button"
-                    onClick={() => { setCoverUrl(null); setIsbnFailed(false) }}
-                    style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', fontSize: '0.75rem', cursor: 'pointer', padding: 0, textAlign: 'left' }}
-                  >
-                    × 커버 제거
-                  </button>
-                )}
-              </>
-            )}
 
             {/* 도서관 책 색상 — 항상 표시 */}
             <div>
@@ -279,6 +224,37 @@ export function ContentForm({ initialData, onSuccess }: ContentFormProps) {
                 />
               </div>
             </div>
+
+            {/* ISBN (book 타입만) — Open Library 커버 조회 */}
+            {type === 'book' && (
+              <>
+                <div style={{ display: 'flex' }}>
+                  <input
+                    style={{ ...inputStyle, flex: 1, borderRadius: '6px 0 0 6px' }}
+                    value={isbn}
+                    onChange={(e) => { setIsbn(e.target.value); setCoverUrl(null); setCoverLoadFailed(false) }}
+                    placeholder="ISBN (예: 9791162540123)"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleIsbnSearch}
+                    disabled={!isbn.trim()}
+                    style={{
+                      padding: '8px 10px', borderRadius: '0 6px 6px 0',
+                      border: '1px solid var(--color-border)', borderLeft: 'none',
+                      background: 'var(--color-surface)', color: 'var(--color-text)',
+                      fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                      opacity: !isbn.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    커버 불러오기
+                  </button>
+                </div>
+                {coverLoadFailed && (
+                  <p style={{ fontSize: '0.75rem', color: '#e05050', margin: 0 }}>커버를 찾을 수 없습니다.</p>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
