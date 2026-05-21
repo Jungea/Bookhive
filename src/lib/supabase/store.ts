@@ -1,6 +1,15 @@
 import { supabase } from './client'
 import type { UserProfile, GenreInventory, StoreItem, BookEntry, RentalRecord } from '../types'
 
+export async function createProfile(userId: string, storeName: string): Promise<UserProfile | null> {
+  const { data } = await supabase
+    .from('user_profiles')
+    .insert({ user_id: userId, store_name: storeName })
+    .select('*')
+    .single()
+  return data
+}
+
 export async function getProfile(userId: string): Promise<UserProfile | null> {
   const { data } = await supabase
     .from('user_profiles')
