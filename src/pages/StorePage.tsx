@@ -19,6 +19,7 @@ export function StorePage() {
   const [gameReady, setGameReady] = useState(false)
   const [rentals, setRentals] = useState<RentalRecord[]>([])
   const rentalsRef = useRef<RentalRecord[]>([])
+  const [showRentalPanel, setShowRentalPanel] = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -78,8 +79,36 @@ export function StorePage() {
       gold: profile.gold,
       reputation: profile.store_reputation,
       stock: totalStock,
+      rentedCount: rentalsRef.current.length,
     })
   }, [profile, gameReady]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const game = gameRef.current
+    if (!gameReady || !game) return
+    const handlePanelClick = () => setShowRentalPanel(p => !p)
+    game.events.on('rental-panel-clicked', handlePanelClick)
+    return () => { game.events.off('rental-panel-clicked', handlePanelClick) }
+  }, [gameReady])
+
+  useEffect(() => {
+    const game = gameRef.current
+    if (!gameReady || !game) return
+    const now = new Date()
+    game.events.emit('rentals-updated', rentals.map(r => ({
+      id: r.id,
+      isOverdue: new Date(r.return_due_at) <= now,
+    })))
+    if (profile) {
+      const totalStock = Object.values(inventory).reduce((a, b) => a + b, 0)
+      game.events.emit('stats-updated', {
+        gold: profile.gold,
+        reputation: profile.store_reputation,
+        stock: totalStock,
+        rentedCount: rentals.length,
+      })
+    }
+  }, [rentals, gameReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const game = gameRef.current
@@ -97,7 +126,7 @@ export function StorePage() {
       setProfile(p => p ? { ...p, gold: newGold, store_reputation: newRep } : p)
 
       const totalStock = Object.values(inventory).reduce((a, b) => a + b, 0)
-      game.events.emit('stats-updated', { gold: newGold, reputation: newRep, stock: totalStock })
+      game.events.emit('stats-updated', { gold: newGold, reputation: newRep, stock: totalStock, rentedCount: rentalsRef.current.length })
     }
 
     const handleRented = async ({ books, customerType }: { books: BookEntry[]; customerType: string }) => {
@@ -136,31 +165,18 @@ export function StorePage() {
     }
   }
 
-  const now = new Date()
-  const overdueRentals = rentals.filter(r => new Date(r.return_due_at) <= now)
-  const onTimeRentals  = rentals.filter(r => new Date(r.return_due_at) > now)
-
   return (
     <div className="flex flex-col h-full">
-      <GameCanvas onGameReady={g => { gameRef.current = g; setGameReady(true) }} />
-
-      {rentals.length > 0 && (
-        <div className="p-3 space-y-2" style={{ borderTop: '1px solid var(--color-border)' }}>
-          <p className="text-xs font-semibold opacity-60" style={{ color: 'var(--color-text)' }}>
-            반납 대기 {rentals.length}권
-          </p>
-
-          {/* 연체 */}
-          {overdueRentals.map(r => (
-            <RentalCard key={r.id} rental={r} overdue onReturn={handleReturn} />
-          ))}
-
-          {/* 정상 */}
-          {onTimeRentals.map(r => (
-            <RentalCard key={r.id} rental={r} overdue={false} onReturn={handleReturn} />
-          ))}
-        </div>
-      )}
+      <div style={{ position: 'relative' }}>
+        <GameCanvas onGameReady={g => { gameRef.current = g; setGameReady(true) }} />
+        {showRentalPanel && (
+          <RentalOverlay
+            rentals={rentals}
+            onReturn={async (id) => { await handleReturn(id) }}
+            onClose={() => setShowRentalPanel(false)}
+          />
+        )}
+      </div>
 
       {!profile && (
         <p className="p-3 text-xs opacity-50" style={{ color: 'var(--color-text)' }}>
@@ -171,44 +187,72 @@ export function StorePage() {
   )
 }
 
-function RentalCard({
-  rental,
-  overdue,
+function RentalOverlay({
+  rentals,
   onReturn,
+  onClose,
 }: {
-  rental: RentalRecord
-  overdue: boolean
+  rentals: RentalRecord[]
   onReturn: (id: string) => void
+  onClose: () => void
 }) {
-  const dueDate = new Date(rental.return_due_at)
-  const dueDateStr = `${dueDate.getMonth() + 1}/${dueDate.getDate()}`
+  const now = new Date()
+  const sorted = [...rentals].sort((a, b) =>
+    (new Date(a.return_due_at) <= now ? 0 : 1) - (new Date(b.return_due_at) <= now ? 0 : 1)
+  )
 
   return (
-    <div
-      className="flex items-center justify-between rounded px-3 py-2 text-xs"
-      style={{
-        background: overdue ? 'rgba(220,80,80,0.12)' : 'var(--color-surface)',
-        border: `1px solid ${overdue ? 'rgba(220,80,80,0.4)' : 'var(--color-border)'}`,
-        color: 'var(--color-text)',
-      }}
-    >
-      <div className="flex flex-col gap-0.5">
-        <span className="font-medium">{rental.content_title}</span>
-        <span className="opacity-50">
-          {overdue ? '연체 — ' : '반납일 '}
-          {dueDateStr}
-        </span>
+    <div style={{
+      position: 'absolute', top: 28, right: 0,
+      background: 'rgba(10,10,10,0.92)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: '6px',
+      padding: '10px',
+      minWidth: '200px',
+      maxWidth: '260px',
+      zIndex: 10,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#aaa' }}>반납 대기 {rentals.length}권</span>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '0.75rem', padding: 0, lineHeight: 1 }}
+        >✕</button>
       </div>
-      <button
-        onClick={() => onReturn(rental.id)}
-        className="px-2 py-1 rounded text-xs"
-        style={{
-          background: overdue ? 'rgba(220,80,80,0.7)' : 'var(--color-primary)',
-          color: '#fff',
-        }}
-      >
-        반납 처리
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        {sorted.map(r => {
+          const overdue = new Date(r.return_due_at) <= now
+          const dueDate = new Date(r.return_due_at)
+          const dueDateStr = `${dueDate.getMonth() + 1}/${dueDate.getDate()}`
+          return (
+            <div key={r.id} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '6px 8px', borderRadius: '4px',
+              background: overdue ? 'rgba(220,80,80,0.15)' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${overdue ? 'rgba(220,80,80,0.35)' : 'rgba(255,255,255,0.08)'}`,
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                <span style={{ fontSize: '0.7rem', color: '#eee', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+                  {r.content_title}
+                </span>
+                <span style={{ fontSize: '0.65rem', color: overdue ? '#e05050' : '#888' }}>
+                  {overdue ? '연체 — ' : '반납일 '}{dueDateStr}
+                </span>
+              </div>
+              <button
+                onClick={() => onReturn(r.id)}
+                style={{
+                  padding: '3px 8px', borderRadius: '4px', border: 'none',
+                  background: overdue ? 'rgba(220,80,80,0.7)' : 'rgba(100,140,180,0.6)',
+                  color: '#fff', fontSize: '0.65rem', cursor: 'pointer', flexShrink: 0, marginLeft: '8px',
+                }}
+              >
+                반납
+              </button>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
