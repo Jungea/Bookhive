@@ -50,7 +50,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '400px' }}>
+    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)' }}>설정</h2>
 
       {/* 프로필 수정 */}

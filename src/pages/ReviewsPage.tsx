@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase/client'
 import { getReviews, deleteReview, type ReviewWithContent } from '../lib/supabase/review'
 import { getContentsWithRecords } from '../lib/supabase/content'
@@ -7,12 +8,15 @@ import type { ContentWithRecord } from '../lib/types'
 
 type View = 'list' | 'new' | 'detail'
 
-export function ReviewsPage({ initialContentId, onNavigated }: { initialContentId?: string; onNavigated?: () => void }) {
+export function ReviewsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialContentId = searchParams.get('contentId') ?? ''
+
   const [reviews, setReviews] = useState<ReviewWithContent[]>([])
   const [contents, setContents] = useState<ContentWithRecord[]>([])
   const [selected, setSelected] = useState<ReviewWithContent | null>(null)
   const [editing, setEditing] = useState(false)
-  const [selectedContentId, setSelectedContentId] = useState(initialContentId ?? '')
+  const [selectedContentId, setSelectedContentId] = useState(initialContentId)
   const [view, setView] = useState<View>(initialContentId ? 'new' : 'list')
   const [loading, setLoading] = useState(true)
 
@@ -29,7 +33,9 @@ export function ReviewsPage({ initialContentId, onNavigated }: { initialContentI
   }, [])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { if (initialContentId) onNavigated?.() }, [initialContentId, onNavigated])
+  useEffect(() => {
+    if (initialContentId) setSearchParams({}, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleDelete(review: ReviewWithContent) {
     const { data: { user } } = await supabase.auth.getUser()
