@@ -1,5 +1,6 @@
 import { supabase } from './client'
 import type { UserProfile, GenreInventory, StoreItem, BookEntry, RentalRecord } from '../types'
+import { RENTAL_DUE_UNIT } from '../../game/balance'
 
 export async function createProfile(userId: string, storeName: string): Promise<UserProfile | null> {
   const { data } = await supabase
@@ -79,13 +80,18 @@ export async function getBookInventory(userId: string): Promise<BookEntry[]> {
   })
 }
 
-// 페이지 수 → 반납 기한(일) 계산
-function getDueDays(pages: number | null): number {
+// 페이지 수 → 반납 기한 계산 (단위: RENTAL_DUE_UNIT)
+function getDueAmount(pages: number | null): number {
   if (!pages) return 5
   if (pages <= 100) return 3
   if (pages <= 300) return 5
   if (pages <= 500) return 7
   return 10
+}
+
+function applyDue(base: Date, amount: number): Date {
+  const ms = { day: 864e5, hour: 36e5, minute: 6e4, second: 1e3 }[RENTAL_DUE_UNIT]
+  return new Date(base.getTime() + amount * ms)
 }
 
 export async function createRental(params: {
@@ -96,8 +102,7 @@ export async function createRental(params: {
   customerType: string
 }): Promise<RentalRecord | null> {
   const rentedAt = new Date()
-  const returnDueAt = new Date(rentedAt)
-  returnDueAt.setDate(returnDueAt.getDate() + getDueDays(params.pages))
+  const returnDueAt = applyDue(rentedAt, getDueAmount(params.pages))
 
   const { data } = await supabase
     .from('rental_records')
