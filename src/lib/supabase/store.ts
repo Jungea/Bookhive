@@ -30,29 +30,30 @@ export async function updateProfile(
 export async function getGenreInventory(userId: string): Promise<GenreInventory> {
   const { data } = await supabase
     .from('reading_records')
-    .select('contents(genre)')
+    .select('stock_count, contents(genre)')
     .eq('user_id', userId)
     .eq('status', 'completed')
 
   if (!data) return {}
 
-  type Row = { contents: { genre: string[] } | { genre: string[] }[] | null }
-  return (data as unknown as Row[])
-    .flatMap(r => {
-      const c = r.contents
-      if (!c) return []
-      return Array.isArray(c) ? c.flatMap(x => x.genre) : c.genre
-    })
-    .reduce<GenreInventory>((acc, genre) => {
-      acc[genre] = (acc[genre] ?? 0) + 1
-      return acc
-    }, {})
+  type Row = { stock_count: number; contents: { genre: string[] } | { genre: string[] }[] | null }
+  const result: GenreInventory = {}
+  for (const row of data as unknown as Row[]) {
+    const c = row.contents
+    if (!c) continue
+    const genres = Array.isArray(c) ? c.flatMap(x => x.genre) : c.genre
+    const count = row.stock_count ?? 1
+    for (const genre of genres) {
+      result[genre] = (result[genre] ?? 0) + count
+    }
+  }
+  return result
 }
 
 export async function getBookInventory(userId: string): Promise<BookEntry[]> {
   const { data } = await supabase
     .from('reading_records')
-    .select('id, content_id, contents(title, genre, total_pages, cover_color, deleted_at)')
+    .select('id, content_id, stock_count, contents(title, genre, total_pages, cover_color, deleted_at)')
     .eq('user_id', userId)
     .eq('status', 'completed')
 
@@ -61,6 +62,7 @@ export async function getBookInventory(userId: string): Promise<BookEntry[]> {
   type Row = {
     id: string
     content_id: string
+    stock_count: number
     contents: { title: string; genre: string[]; total_pages: number | null; cover_color: string | null; deleted_at: string | null }
               | { title: string; genre: string[]; total_pages: number | null; cover_color: string | null; deleted_at: string | null }[]
               | null
@@ -69,15 +71,43 @@ export async function getBookInventory(userId: string): Promise<BookEntry[]> {
     const c = r.contents
     if (!c) return []
     const items = Array.isArray(c) ? c : [c]
-    return items.filter(item => !item.deleted_at).map(item => ({
-      content_id: r.content_id,
-      reading_record_id: r.id,
-      title: item.title,
-      genre: item.genre[0] ?? '기타',
-      pages: item.total_pages,
-      cover_color: item.cover_color,
-    }))
+    const stockCount = r.stock_count ?? 1
+    return items.filter(item => !item.deleted_at).flatMap(item =>
+      Array.from({ length: stockCount }, (_, i) => ({
+        copy_id: `${r.content_id}#${i}`,
+        stock_count: stockCount,
+        content_id: r.content_id,
+        reading_record_id: r.id,
+        title: item.title,
+        genre: item.genre[0] ?? '기타',
+        pages: item.total_pages,
+        cover_color: item.cover_color,
+      }))
+    )
   })
+}
+
+export async function incrementStock(recordId: string): Promise<void> {
+  const { data } = await supabase
+    .from('reading_records')
+    .select('stock_count')
+    .eq('id', recordId)
+    .single()
+  if (!data) return
+  await supabase
+    .from('reading_records')
+    .update({ stock_count: (data.stock_count ?? 1) + 1 })
+    .eq('id', recordId)
+}
+
+export async function getReturnedRentalCount(userId: string, contentId: string): Promise<number> {
+  const { count } = await supabase
+    .from('rental_records')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('content_id', contentId)
+    .not('returned_at', 'is', null)
+  return count ?? 0
 }
 
 // 페이지 수 → 반납 기한 계산 (단위: RENTAL_DUE_UNIT)

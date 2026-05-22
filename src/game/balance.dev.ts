@@ -1,4 +1,10 @@
-export const RENTAL_DUE_UNIT = 'second' as const
+export const RENTAL_DUE_UNIT  = 'second' as const
+export const RENTAL_PER_STOCK = 3  // 대여 완료 N회마다 재고 +1
+
+// 책장 추가 비용 [레벨2, 레벨3, 레벨4] (개발용: 낮은 비용)
+export const SHELF_COSTS:   readonly number[] = [50, 150, 300]
+// 책장 해금 최소 평판 [레벨1(기본), 레벨2, 레벨3, 레벨4] (개발용: 낮은 기준)
+export const SHELF_REP_REQ: readonly number[] = [0, 5, 10, 20]
 
 export const CUSTOMER_PROB = {
   VISIT_SHELF:        1.00, // 책장 방문 확률

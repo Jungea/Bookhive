@@ -33,6 +33,14 @@ export async function upsertReview(data: {
     return
   }
 
+  // 최초 작성 여부 확인 (첫 번째 독후감에만 재고 +1)
+  const { count: existingCount } = await supabase
+    .from('reviews')
+    .select('*', { count: 'exact', head: true })
+    .eq('content_id', data.contentId)
+    .eq('user_id', user.id)
+  const isFirstReview = (existingCount ?? 0) === 0
+
   const { data: review, error } = await supabase
     .from('reviews')
     .insert({ user_id: user.id, content_id: data.contentId, title: data.title, body: data.body, rating: data.rating, is_public: false })
@@ -42,7 +50,7 @@ export async function upsertReview(data: {
 
   const { data: record } = await supabase
     .from('reading_records')
-    .select('id')
+    .select('id, stock_count')
     .eq('content_id', data.contentId)
     .eq('user_id', user.id)
     .single()
@@ -55,6 +63,13 @@ export async function upsertReview(data: {
       action:     'review_written',
       note:       '독후감 작성',
     })
+
+    if (isFirstReview) {
+      await supabase
+        .from('reading_records')
+        .update({ stock_count: (record.stock_count ?? 1) + 1 })
+        .eq('id', record.id)
+    }
   }
 }
 

@@ -31,6 +31,7 @@ export interface ReadingRecord {
   started_at: string | null
   completed_at: string | null
   is_in_store: boolean
+  stock_count: number
 }
 
 export interface UserProfile {
@@ -56,11 +57,13 @@ export interface StoreItem {
 export type GenreInventory = Record<string, number>
 
 export interface BookEntry {
+  copy_id: string          // 복수 권 구분용 synthetic ID (content_id#copyIndex)
+  stock_count: number      // 총 보유 권수
   content_id: string
   reading_record_id: string
   title: string
-  genre: string        // 첫 번째 장르 (책장 색상 기준)
-  pages: number | null // 페이지 수 (책 두께 계산용)
+  genre: string            // 첫 번째 장르 (책장 색상 기준)
+  pages: number | null     // 페이지 수 (책 두께 계산용)
   cover_color: string | null
 }
 

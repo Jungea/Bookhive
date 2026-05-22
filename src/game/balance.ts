@@ -7,5 +7,8 @@ import * as dev from './balance.dev'
 
 const b = import.meta.env.DEV ? dev : prod
 
-export const RENTAL_DUE_UNIT = b.RENTAL_DUE_UNIT
-export const CUSTOMER_PROB   = b.CUSTOMER_PROB
+export const RENTAL_DUE_UNIT  = b.RENTAL_DUE_UNIT
+export const CUSTOMER_PROB    = b.CUSTOMER_PROB
+export const RENTAL_PER_STOCK = b.RENTAL_PER_STOCK
+export const SHELF_COSTS      = b.SHELF_COSTS
+export const SHELF_REP_REQ    = b.SHELF_REP_REQ

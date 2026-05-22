@@ -44,6 +44,10 @@ alter table public.contents enable row level security;
 create policy "contents_self" on public.contents
   for all using (auth.uid() = user_id);
 
+-- reading_records.stock_count 추가 (2026-05-22)
+alter table public.reading_records
+  add column if not exists stock_count integer not null default 1;
+
 -- reading_records
 create table if not exists public.reading_records (
   id                uuid        primary key default gen_random_uuid(),

@@ -22,6 +22,19 @@ export async function updateProgress(data: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
+  // 재독 완료 시 재고 +1 감지
+  let newStockCount: number | undefined
+  if (data.status === 'completed') {
+    const { data: current } = await supabase
+      .from('reading_records')
+      .select('status, stock_count')
+      .eq('id', data.recordId)
+      .single()
+    if (current?.status === 'rereading') {
+      newStockCount = (current.stock_count ?? 1) + 1
+    }
+  }
+
   await supabase
     .from('reading_records')
     .update({
@@ -29,6 +42,7 @@ export async function updateProgress(data: {
       progress_page: data.progressPage,
       progress_episode: data.progressEpisode,
       ...(data.status === 'completed' ? { completed_at: new Date().toISOString() } : {}),
+      ...(newStockCount !== undefined ? { stock_count: newStockCount } : {}),
     })
     .eq('id', data.recordId)
     .eq('user_id', user.id)
