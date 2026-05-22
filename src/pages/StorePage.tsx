@@ -9,8 +9,10 @@ import {
   incrementStock, getReturnedRentalCount,
 } from '../lib/supabase/store'
 import { calculateOfflineEarnings } from '../game/systems/IdleLoop'
-import { calculateVisitReward, calculateReturnReward } from '../game/systems/RewardSystem'
-import type { CustomerType } from '../game/systems/RewardSystem'
+import { calculateVisitReward, calculateReturnReward, getReturnEvent } from '../game/systems/RewardSystem'
+import type { CustomerType, ReturnEvent } from '../game/systems/RewardSystem'
+import { checkAndGrantAchievements } from '../lib/supabase/achievement'
+import type { AchievementDef } from '../lib/supabase/achievement'
 import type { UserProfile, GenreInventory, BookEntry, RentalRecord } from '../lib/types'
 import { RENTAL_PER_STOCK, SHELF_COSTS, SHELF_REP_REQ } from '../game/balance'
 
@@ -25,6 +27,8 @@ export function StorePage() {
   const [gameReady, setGameReady] = useState(false)
   const [rentals, setRentals] = useState<RentalRecord[]>([])
   const [shopOpen, setShopOpen] = useState(false)
+  const [returnToast, setReturnToast] = useState<(ReturnEvent & { gold: number }) | null>(null)
+  const [achievementToast, setAchievementToast] = useState<AchievementDef[] | null>(null)
   const rentalsRef = useRef<RentalRecord[]>([])
   const userIdRef = useRef<string | null>(null)
 
@@ -60,6 +64,14 @@ export function StorePage() {
       setBooks(bookList)
       rentalsRef.current = activeRentals
       setRentals(activeRentals)
+
+      // 초기 로드 시 업적 체크
+      const { newAchievements, repAdded } = await checkAndGrantAchievements(user.id)
+      if (newAchievements.length > 0) {
+        setProfile(p => p ? { ...p, store_reputation: p.store_reputation + repAdded } : p)
+        setAchievementToast(newAchievements)
+        setTimeout(() => setAchievementToast(null), 3500)
+      }
     }
     init()
 
@@ -176,11 +188,26 @@ export function StorePage() {
       if (!rental) return
       game.events.emit('book-returned', { contentId: rental.content_id })
 
-      // 금화 지급
-      const { gold: earnedGold } = calculateReturnReward(rental.customer_type as CustomerType)
+      // 반납 이벤트 결정 + 금화/평판 지급
+      const isOverdue = new Date(rental.return_due_at) <= new Date()
+      const event = getReturnEvent(isOverdue)
+      const { gold: baseGold } = calculateReturnReward(rental.customer_type as CustomerType)
+      const earnedGold = Math.floor(baseGold * event.goldMultiplier)
       const newGold = profile.gold + earnedGold
-      await updateProfile(user.id, { gold: newGold })
-      setProfile(p => p ? { ...p, gold: newGold } : p)
+      const newRep  = profile.store_reputation + event.bonusReputation
+      await updateProfile(user.id, { gold: newGold, store_reputation: newRep })
+      setProfile(p => p ? { ...p, gold: newGold, store_reputation: newRep } : p)
+
+      setReturnToast({ ...event, gold: earnedGold })
+      setTimeout(() => setReturnToast(null), 2500)
+
+      // 반납 후 업적 체크
+      const { newAchievements, repAdded: achRep } = await checkAndGrantAchievements(user.id)
+      if (newAchievements.length > 0) {
+        setProfile(p => p ? { ...p, store_reputation: p.store_reputation + achRep } : p)
+        setAchievementToast(newAchievements)
+        setTimeout(() => setAchievementToast(null), 3500)
+      }
 
       // 대여 완료 횟수가 임계값의 배수에 도달하면 재고 +1
       if (rental.reading_record_id) {
@@ -239,6 +266,47 @@ export function StorePage() {
         {!profile && (
           <div style={{ position: 'absolute', inset: 0, background: 'var(--color-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <PageLoading label="도서관 불러오는 중..." />
+          </div>
+        )}
+
+        {/* 업적 달성 토스트 */}
+        {achievementToast && achievementToast.length > 0 && (
+          <div style={{
+            position: 'absolute', top: 32, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(20,10,40,0.93)', border: '1px solid rgba(180,130,255,0.4)',
+            borderRadius: 8, padding: '8px 16px', color: '#eee',
+            fontFamily: 'Courier New, monospace', fontSize: 12,
+            display: 'flex', flexDirection: 'column', gap: 4,
+            pointerEvents: 'none', minWidth: 200,
+          }}>
+            <span style={{ color: '#c792ea', fontWeight: 700, fontSize: 11 }}>🏆 업적 달성!</span>
+            {achievementToast.map(a => (
+              <div key={a.key} style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                <span>{a.label} <span style={{ color: '#aaa', fontSize: 10 }}>— {a.desc}</span></span>
+                <span style={{ color: '#7fc97f', fontWeight: 700, flexShrink: 0 }}>+{a.rep}⭐</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 반납 이벤트 토스트 */}
+        {returnToast && (
+          <div style={{
+            position: 'absolute', top: 32, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(10,10,10,0.88)', border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 8, padding: '8px 16px', color: '#eee',
+            fontFamily: 'Courier New, monospace', fontSize: 12,
+            display: 'flex', alignItems: 'center', gap: 8,
+            pointerEvents: 'none', whiteSpace: 'nowrap',
+          }}>
+            <span style={{ fontSize: 16 }}>{returnToast.icon}</span>
+            <span>{returnToast.message}</span>
+            <span style={{ color: returnToast.gold > 0 ? '#ffd700' : '#e05050', fontWeight: 700 }}>
+              {returnToast.gold > 0 ? `+${returnToast.gold}G` : '0G'}
+            </span>
+            {returnToast.bonusReputation > 0 && (
+              <span style={{ color: '#7fc97f', fontWeight: 700 }}>+{returnToast.bonusReputation}⭐</span>
+            )}
           </div>
         )}
 

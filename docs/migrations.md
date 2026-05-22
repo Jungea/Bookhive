@@ -44,6 +44,18 @@ alter table public.contents enable row level security;
 create policy "contents_self" on public.contents
   for all using (auth.uid() = user_id);
 
+-- achievements 테이블 추가 (2026-05-22)
+create table if not exists public.achievements (
+  user_id     uuid        not null references auth.users(id) on delete cascade,
+  key         text        not null,
+  achieved_at timestamptz not null default now(),
+  primary key (user_id, key)
+);
+
+alter table public.achievements enable row level security;
+create policy "achievements_self" on public.achievements
+  for all using (auth.uid() = user_id);
+
 -- reading_records.stock_count 추가 (2026-05-22)
 alter table public.reading_records
   add column if not exists stock_count integer not null default 1;

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase/client'
 import { getReviews, deleteReview, type ReviewWithContent } from '../lib/supabase/review'
 import { getContentsWithRecords } from '../lib/supabase/content'
+import { checkAndGrantAchievements } from '../lib/supabase/achievement'
 import { ReviewEditor } from '../components/ReviewEditor'
 import { PageLoading } from '../components/PageLoading'
 import type { ContentWithRecord } from '../lib/types'
@@ -47,11 +48,14 @@ export function ReviewsPage() {
     setSelected(null)
   }
 
-  function handleSuccess() {
+  async function handleSuccess() {
     load()
     setView('list')
     setSelected(null)
     setEditing(false)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) await checkAndGrantAchievements(user.id)
   }
 
   const formatDate = (iso: string) =>

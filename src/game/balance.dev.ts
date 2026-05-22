@@ -1,7 +1,9 @@
 export const RENTAL_DUE_UNIT  = 'second' as const
 export const RENTAL_PER_STOCK = 3  // 대여 완료 N회마다 재고 +1
 
-export const QUEST_PROB = 0.80  // 퀘스트 손님 발생 확률 (개발용: 높게)
+export const QUEST_PROB   = 0.80  // 퀘스트 손님 발생 확률 (개발용: 높게)
+export const DAMAGE_PROB  = 0.20  // 반납 시 훼손 이벤트 확률 (개발용)
+export const MEMO_PROB    = 0.30  // 반납 시 메모 발견 이벤트 확률 (개발용)
 
 // 책장 추가 비용 [레벨2, 레벨3, 레벨4] (개발용: 낮은 비용)
 export const SHELF_COSTS:   readonly number[] = [50, 150, 300]
