@@ -7,11 +7,14 @@ interface StoreStats {
   rentedCount?: number
 }
 
-interface RentalInfo {
+export interface RentalInfo {
   id: string
   title: string
   dueDateStr: string
   isOverdue: boolean
+  returnDueAt: string
+  contentId: string
+  customerType: string
 }
 
 const ICON_SIZE = 16
@@ -174,9 +177,11 @@ export class UIScene extends Phaser.Scene {
       }))
 
       const rentalId = r.id
+      const customerType = r.customerType
+      const contentId = r.contentId
       const btnZone = this.add.zone(PANEL_W - 26, y + 18, 36, 18).setInteractive({ useHandCursor: true })
       btnZone.on('pointerdown', () => {
-        this.game.events.emit('book-return-requested', { rentalId })
+        this.game.events.emit('manual-return-requested', { rentalId, customerType, contentId })
       })
       container.add(btnZone)
     })

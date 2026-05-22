@@ -12,6 +12,8 @@ import { calculateVisitReward } from '../game/systems/RewardSystem'
 import type { CustomerType } from '../game/systems/RewardSystem'
 import type { UserProfile, GenreInventory, BookEntry, RentalRecord } from '../lib/types'
 
+const HEARTBEAT_INTERVAL_MS = 60_000
+
 export function StorePage() {
   const gameRef = useRef<Phaser.Game | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -20,11 +22,13 @@ export function StorePage() {
   const [gameReady, setGameReady] = useState(false)
   const [rentals, setRentals] = useState<RentalRecord[]>([])
   const rentalsRef = useRef<RentalRecord[]>([])
+  const userIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+      userIdRef.current = user.id
 
       const [prof, inv, bookList, activeRentals] = await Promise.all([
         getProfile(user.id),
@@ -54,6 +58,16 @@ export function StorePage() {
       setRentals(activeRentals)
     }
     init()
+
+    // 앱이 열려있는 동안 주기적으로 last_online_at 갱신
+    // → 다음 접속 시 오프라인 구간이 정확하게 계산됨
+    const heartbeat = setInterval(() => {
+      if (userIdRef.current) {
+        updateProfile(userIdRef.current, { last_online_at: new Date().toISOString() })
+      }
+    }, HEARTBEAT_INTERVAL_MS)
+
+    return () => clearInterval(heartbeat)
   }, [])
 
   // 책장은 books/inventory/storeLevel이 바뀔 때만 갱신
@@ -92,8 +106,11 @@ export function StorePage() {
       return {
         id: r.id,
         title: r.content_title,
-        dueDateStr: `${dueDate.getMonth() + 1}/${dueDate.getDate()}`,
+        dueDateStr: `${dueDate.getMonth() + 1}/${dueDate.getDate()} ${String(dueDate.getHours()).padStart(2, '0')}:${String(dueDate.getMinutes()).padStart(2, '0')}:${String(dueDate.getSeconds()).padStart(2, '0')}`,
         isOverdue: dueDate <= now,
+        returnDueAt: r.return_due_at,
+        contentId: r.content_id,
+        customerType: r.customer_type,
       }
     }))
     if (profile) {
@@ -141,6 +158,7 @@ export function StorePage() {
       ))
       const newRentals = created.filter((r): r is RentalRecord => r !== null)
       if (newRentals.length > 0) {
+        rentalsRef.current = [...newRentals, ...rentalsRef.current]
         setRentals(prev => [...newRentals, ...prev])
       }
     }

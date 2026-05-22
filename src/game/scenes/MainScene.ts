@@ -7,6 +7,7 @@ import { Librarian } from '../objects/Librarian'
 import { generateCustomer, pickWantedGenre } from '../systems/CustomerAI'
 import type { GenreInventory, BookEntry } from '../../lib/types'
 import type { CustomerRoute } from '../objects/Customer'
+import type { RentalInfo } from './UIScene'
 import { CUSTOMER_PROB } from '../balance'
 
 const FLOOR_Y_RATIO = 0.75
@@ -27,6 +28,8 @@ export class MainScene extends Phaser.Scene {
   private currentBooks: BookEntry[] = []
   private currentReputation = 0
   private rentedContentIds: Set<string> = new Set()
+  private activeRentals: RentalInfo[] = []
+  private returningRentalIds: Set<string> = new Set()
 
   constructor() { super('MainScene') }
 
@@ -76,6 +79,27 @@ export class MainScene extends Phaser.Scene {
     this.game.events.on('book-returned', ({ contentId }: { contentId: string }) => {
       this.rentedContentIds.delete(contentId)
       this.bookshelves.forEach(shelf => shelf.returnBook(contentId))
+    })
+
+    this.game.events.on('rentals-updated', (rentals: RentalInfo[]) => {
+      this.activeRentals = rentals
+      // 이미 반납된 대여는 추적 목록에서 제거
+      const activeIds = new Set(rentals.map(r => r.id))
+      this.returningRentalIds.forEach(id => {
+        if (!activeIds.has(id)) this.returningRentalIds.delete(id)
+      })
+    })
+
+    this.game.events.on('manual-return-requested', ({ rentalId, customerType, contentId }: {
+      rentalId: string; customerType: string; contentId: string
+    }) => {
+      if (this.returningRentalIds.has(rentalId)) return
+      this.returningRentalIds.add(rentalId)
+      const rental = this.activeRentals.find(r => r.id === rentalId)
+      this.spawnReturningCustomer(rental ?? {
+        id: rentalId, customerType, contentId,
+        title: '', dueDateStr: '', isOverdue: false, returnDueAt: '',
+      })
     })
   }
 
@@ -224,6 +248,52 @@ export class MainScene extends Phaser.Scene {
           })
         }
         void c
+      },
+      onExit: (c) => {
+        this.customers = this.customers.filter(x => x !== c)
+        c.destroy()
+      },
+    })
+
+    this.customers.push(customer)
+
+    // 기한 지난 대여 중 아직 반납 고객이 안 온 것 1건 처리
+    const now = new Date()
+    const overdueRental = this.activeRentals.find(
+      r => new Date(r.returnDueAt) <= now && !this.returningRentalIds.has(r.id)
+    )
+    if (overdueRental) {
+      this.returningRentalIds.add(overdueRental.id)
+      this.spawnReturningCustomer(overdueRental)
+    }
+  }
+
+  private spawnReturningCustomer(rental: RentalInfo) {
+    const { width, height } = this.cameras.main
+    const floorTop = height * FLOOR_Y_RATIO
+    const floorY = floorTop + Math.random() * (height - floorTop - 40)
+    const zoneW = width * ZONE_W_RATIO
+    const deskX = zoneW * 1.5
+
+    const book = this.currentBooks.find(b => b.content_id === rental.contentId)
+    const carriedBooks: CarriedBook[] = [{
+      color: book?.cover_color ? parseInt(book.cover_color.replace('#', ''), 16) : 0x888888,
+      thickness: calcBookWidth(book?.pages ?? null),
+    }]
+
+    const customer = new Customer({
+      scene: this,
+      x: -16,
+      y: floorY,
+      entryX: zoneW * 1.2,
+      shelfX: zoneW * 2,
+      deskX,
+      customerType: rental.customerType,
+      route: 'desk_then_exit',
+      carriedBooks,
+      onAtShelf: () => {},
+      onAtDesk: () => {
+        this.game.events.emit('book-return-requested', { rentalId: rental.id })
       },
       onExit: (c) => {
         this.customers = this.customers.filter(x => x !== c)

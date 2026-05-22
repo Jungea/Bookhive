@@ -2,7 +2,7 @@ import Phaser from 'phaser'
 import { DEPTH } from '../depths'
 
 export type CustomerState = 'entering' | 'at_shelf' | 'going_to_desk' | 'at_desk' | 'leaving'
-export type CustomerRoute = 'exit_only' | 'shelf_then_exit' | 'shelf_then_desk'
+export type CustomerRoute = 'exit_only' | 'shelf_then_exit' | 'shelf_then_desk' | 'desk_then_exit'
 
 export interface CarriedBook {
   color: number
@@ -40,10 +40,14 @@ export class Customer {
   private state: CustomerState = 'entering'
   private config: CustomerConfig
   private targetX: number
+  private carriedBooksGraphics: Phaser.GameObjects.Graphics | null = null
+  private returnIcon: Phaser.GameObjects.Text | null = null
 
   constructor(config: CustomerConfig) {
     this.config = config
-    this.targetX = config.route === 'exit_only' ? config.entryX : config.shelfX
+    this.targetX = config.route === 'exit_only' ? config.entryX
+      : config.route === 'desk_then_exit' ? config.deskX
+      : config.shelfX
 
     const { scene, x, y, customerType } = config
     const color = CUSTOMER_COLORS[customerType] ?? 0xffffff
@@ -51,6 +55,17 @@ export class Customer {
     const head = scene.add.circle(0, -18, 6, 0xf5cba7)
     const body = scene.add.rectangle(0, -6, 10, 16, color)
     this.container = scene.add.container(x, y, [head, body]).setDepth(DEPTH.CUSTOMER)
+
+    // 반납 고객: 책 들고 입장 + 머리 위 아이콘
+    if (config.route === 'desk_then_exit') {
+      if (config.carriedBooks?.length) this.showCarriedBooks()
+      this.returnIcon = scene.add.text(0, -36, '↩', {
+        fontSize: '10px', color: '#ffffff',
+        backgroundColor: '#c0392b',
+        padding: { x: 2, y: 1 },
+      }).setOrigin(0.5, 1)
+      this.container.add(this.returnIcon)
+    }
   }
 
   update() {
@@ -96,6 +111,7 @@ export class Customer {
       yBottom -= t + 1
     }
 
+    this.carriedBooksGraphics = g
     this.container.add(g)
   }
 
@@ -105,6 +121,17 @@ export class Customer {
     if (this.state === 'entering') {
       if (config.route === 'exit_only') {
         config.scene.time.delayedCall(800, () => {
+          this.state = 'leaving'
+        })
+      } else if (config.route === 'desk_then_exit') {
+        this.state = 'at_desk'
+        // 책과 아이콘을 데스크에 두고 감
+        this.carriedBooksGraphics?.destroy()
+        this.carriedBooksGraphics = null
+        this.returnIcon?.destroy()
+        this.returnIcon = null
+        config.onAtDesk(this)
+        config.scene.time.delayedCall(1500, () => {
           this.state = 'leaving'
         })
       } else {
