@@ -205,7 +205,6 @@ export class MainScene extends Phaser.Scene {
       reputation: this.currentReputation,
     })
     const wantedGenre = pickWantedGenre(profile.type, this.currentInventory)
-    const isQuest = profile.isQuest && wantedGenre !== null
 
     // 대여 가능한 책 = 원하는 장르 + 현재 대여 중이 아닌 권
     const rentableBooks = wantedGenre
@@ -221,6 +220,8 @@ export class MainScene extends Phaser.Scene {
       : willRent
         ? 'shelf_then_desk'
         : 'shelf_then_exit'
+
+    const isQuest = profile.isQuest && route === 'shelf_then_desk'
 
     // 1~3권 랜덤 선택 (가용 재고 내)
     let selectedBooks: BookEntry[] = []

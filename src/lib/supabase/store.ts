@@ -41,11 +41,10 @@ export async function getGenreInventory(userId: string): Promise<GenreInventory>
   for (const row of data as unknown as Row[]) {
     const c = row.contents
     if (!c) continue
-    const genres = Array.isArray(c) ? c.flatMap(x => x.genre) : c.genre
+    const genre0 = Array.isArray(c) ? c[0]?.genre[0] : c.genre[0]
+    if (!genre0) continue
     const count = row.stock_count ?? 1
-    for (const genre of genres) {
-      result[genre] = (result[genre] ?? 0) + count
-    }
+    result[genre0] = (result[genre0] ?? 0) + count
   }
   return result
 }
