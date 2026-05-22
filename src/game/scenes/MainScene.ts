@@ -205,6 +205,7 @@ export class MainScene extends Phaser.Scene {
       reputation: this.currentReputation,
     })
     const wantedGenre = pickWantedGenre(profile.type, this.currentInventory)
+    const isQuest = profile.isQuest && wantedGenre !== null
 
     // 대여 가능한 책 = 원하는 장르 + 현재 대여 중이 아닌 권
     const rentableBooks = wantedGenre
@@ -266,6 +267,8 @@ export class MainScene extends Phaser.Scene {
       customerType: profile.type,
       route,
       carriedBooks,
+      isQuest,
+      questGenre: isQuest ? (wantedGenre ?? undefined) : undefined,
       onAtShelf: () => {
         for (const book of selectedBooks) {
           shelf.rentBook(book.copy_id)
@@ -275,6 +278,7 @@ export class MainScene extends Phaser.Scene {
         this.game.events.emit('customer-resolved', {
           wantedGenre: wantedGenre ?? '',
           customerType: profile.type,
+          isQuest,
         })
         if (selectedBooks.length > 0) {
           this.game.events.emit('books-rented', {

@@ -6,6 +6,7 @@ interface VisitRewardParams {
   wantedGenre: string
   inventory: GenreInventory
   customerType: CustomerType
+  isQuest?: boolean
 }
 
 interface VisitReward {
@@ -31,17 +32,25 @@ const REPUTATION_ON_SATISFY: Record<CustomerType, number> = {
   collector: 10,
 }
 
-// 방문 시: 평판만 지급
+const QUEST_BONUS_REP: Record<CustomerType, number> = {
+  student:   5,
+  worker:    3,
+  webnovel:  3,
+  collector: 15,
+}
+
+// 방문 시: 평판만 지급 (퀘스트 성공 시 보너스)
 export function calculateVisitReward(params: VisitRewardParams): VisitReward {
-  const { wantedGenre, inventory, customerType } = params
+  const { wantedGenre, inventory, customerType, isQuest } = params
   const stock = inventory[wantedGenre] ?? 0
 
   if (stock === 0) {
     return { reputation: 0, satisfied: false }
   }
 
+  const bonus = isQuest ? QUEST_BONUS_REP[customerType] : 0
   return {
-    reputation: REPUTATION_ON_SATISFY[customerType],
+    reputation: REPUTATION_ON_SATISFY[customerType] + bonus,
     satisfied:  true,
   }
 }

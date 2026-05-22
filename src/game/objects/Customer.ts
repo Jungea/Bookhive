@@ -28,6 +28,8 @@ interface CustomerConfig {
   customerType: string
   route: CustomerRoute
   carriedBooks?: CarriedBook[]
+  isQuest?: boolean
+  questGenre?: string
   onAtShelf: (customer: Customer) => void
   onAtDesk: (customer: Customer) => void
   onExit: (customer: Customer) => void
@@ -65,6 +67,26 @@ export class Customer {
         padding: { x: 2, y: 1 },
       }).setOrigin(0.5, 1)
       this.container.add(this.returnIcon)
+    }
+
+    // 퀘스트 손님: 장르 요청 말풍선
+    if (config.isQuest && config.questGenre) {
+      const label = '? ' + config.questGenre.slice(0, 5)
+      const t = scene.add.text(0, -46, label, {
+        fontSize: '8px', color: '#5d4037', fontFamily: 'Courier New',
+      }).setOrigin(0.5, 0.5)
+      const tw = t.width + 10
+      const th = 14
+      const by = -46
+      const g = scene.add.graphics()
+      g.fillStyle(0xfff3cd, 1)
+      g.fillRoundedRect(-tw / 2, by - th / 2, tw, th, 3)
+      g.lineStyle(1, 0xc8a020, 0.8)
+      g.strokeRoundedRect(-tw / 2, by - th / 2, tw, th, 3)
+      // 말풍선 꼬리
+      g.fillStyle(0xfff3cd, 1)
+      g.fillTriangle(-3, by + th / 2, 3, by + th / 2, 0, by + th / 2 + 5)
+      this.container.add([g, t])
     }
   }
 

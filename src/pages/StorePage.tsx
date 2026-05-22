@@ -130,12 +130,12 @@ export function StorePage() {
     const game = gameRef.current
     if (!gameReady || !game) return
 
-    // 방문 시: 평판만 지급
-    const handleResolved = async ({ wantedGenre, customerType }: { wantedGenre: string; customerType: CustomerType }) => {
+    // 방문 시: 평판만 지급 (퀘스트 성공 시 보너스)
+    const handleResolved = async ({ wantedGenre, customerType, isQuest }: { wantedGenre: string; customerType: CustomerType; isQuest?: boolean }) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || !profile) return
 
-      const reward = calculateVisitReward({ wantedGenre, inventory, customerType })
+      const reward = calculateVisitReward({ wantedGenre, inventory, customerType, isQuest })
       if (reward.reputation === 0) return
 
       const newRep = profile.store_reputation + reward.reputation

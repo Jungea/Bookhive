@@ -12,3 +12,4 @@ export const CUSTOMER_PROB    = b.CUSTOMER_PROB
 export const RENTAL_PER_STOCK = b.RENTAL_PER_STOCK
 export const SHELF_COSTS      = b.SHELF_COSTS
 export const SHELF_REP_REQ    = b.SHELF_REP_REQ
+export const QUEST_PROB       = b.QUEST_PROB

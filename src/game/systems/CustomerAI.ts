@@ -1,9 +1,11 @@
 import type { GenreInventory } from '../../lib/types'
 import type { CustomerType } from './RewardSystem'
+import { QUEST_PROB } from '../balance'
 
 interface CustomerProfile {
   type: CustomerType
   preferredGenres: string[]
+  isQuest: boolean
 }
 
 interface GenerateParams {
@@ -36,13 +38,15 @@ export function generateCustomer(params: GenerateParams): CustomerProfile {
   const total = Object.values(weights).reduce((a, b) => a + b, 0)
   let rand = Math.random() * total
 
+  const isQuest = Math.random() < QUEST_PROB
+
   for (const [type, weight] of Object.entries(weights) as [CustomerType, number][]) {
     rand -= weight
     if (rand <= 0) {
-      return { type, preferredGenres: GENRE_PREFS[type] }
+      return { type, preferredGenres: GENRE_PREFS[type], isQuest }
     }
   }
-  return { type: 'worker', preferredGenres: GENRE_PREFS.worker }
+  return { type: 'worker', preferredGenres: GENRE_PREFS.worker, isQuest }
 }
 
 export function pickWantedGenre(
