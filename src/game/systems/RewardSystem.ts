@@ -9,9 +9,12 @@ interface VisitRewardParams {
 }
 
 interface VisitReward {
-  gold: number
   reputation: number
   satisfied: boolean
+}
+
+interface ReturnReward {
+  gold: number
 }
 
 const BASE_GOLD: Record<CustomerType, number> = {
@@ -28,17 +31,22 @@ const REPUTATION_ON_SATISFY: Record<CustomerType, number> = {
   collector: 10,
 }
 
+// 방문 시: 평판만 지급
 export function calculateVisitReward(params: VisitRewardParams): VisitReward {
   const { wantedGenre, inventory, customerType } = params
   const stock = inventory[wantedGenre] ?? 0
 
   if (stock === 0) {
-    return { gold: 0, reputation: -1, satisfied: false }
+    return { reputation: 0, satisfied: false }
   }
 
   return {
-    gold:       BASE_GOLD[customerType],
     reputation: REPUTATION_ON_SATISFY[customerType],
     satisfied:  true,
   }
+}
+
+// 반납 시: 금화만 지급
+export function calculateReturnReward(customerType: CustomerType): ReturnReward {
+  return { gold: BASE_GOLD[customerType] }
 }

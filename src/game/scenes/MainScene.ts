@@ -9,6 +9,13 @@ import type { GenreInventory, BookEntry } from '../../lib/types'
 import type { CustomerRoute } from '../objects/Customer'
 import type { RentalInfo } from './UIScene'
 import { CUSTOMER_PROB } from '../balance'
+import { DEPTH } from '../depths'
+
+interface ReturnCard {
+  rentalId: string
+  contentId: string
+  container: Phaser.GameObjects.Container
+}
 
 const FLOOR_Y_RATIO = 0.75
 const ZONE_COUNT    = 4
@@ -27,9 +34,12 @@ export class MainScene extends Phaser.Scene {
   private currentInventory: GenreInventory = {}
   private currentBooks: BookEntry[] = []
   private currentReputation = 0
-  private rentedContentIds: Set<string> = new Set()
+  private rentedCopyIds: Set<string> = new Set()
   private activeRentals: RentalInfo[] = []
   private returningRentalIds: Set<string> = new Set()
+  private returnCards: ReturnCard[] = []
+  private deskCenterX = 0
+  private deskTopY = 0
 
   constructor() { super('MainScene') }
 
@@ -45,6 +55,9 @@ export class MainScene extends Phaser.Scene {
     const deskX = zoneW + (zoneW - deskW) / 2
     new Desk(this, deskX, floorY, deskW, deskH)
     new Librarian(this, deskX + deskW / 2, floorY - deskH * 0.5)
+
+    this.deskCenterX = deskX + deskW / 2
+    this.deskTopY = floorY - deskH
 
     this.placeBookshelves([], {}, 1)
 
@@ -66,7 +79,21 @@ export class MainScene extends Phaser.Scene {
         this.currentInventory = inventory
         this.currentBooks = books
         if (rentedContentIds) {
-          this.rentedContentIds = new Set(rentedContentIds)
+          // content_id 목록(중복 허용) → copy_id Set으로 변환
+          const rentedCountMap = new Map<string, number>()
+          for (const cid of rentedContentIds) {
+            rentedCountMap.set(cid, (rentedCountMap.get(cid) ?? 0) + 1)
+          }
+          this.rentedCopyIds = new Set()
+          const seenCopies = new Map<string, number>()
+          for (const book of books) {
+            const seen = seenCopies.get(book.content_id) ?? 0
+            const total = rentedCountMap.get(book.content_id) ?? 0
+            if (seen < total) {
+              this.rentedCopyIds.add(book.copy_id)
+              seenCopies.set(book.content_id, seen + 1)
+            }
+          }
         }
         this.placeBookshelves(books, inventory, storeLevel)
       }
@@ -77,8 +104,12 @@ export class MainScene extends Phaser.Scene {
     })
 
     this.game.events.on('book-returned', ({ contentId }: { contentId: string }) => {
-      this.rentedContentIds.delete(contentId)
-      this.bookshelves.forEach(shelf => shelf.returnBook(contentId))
+      // 해당 content_id의 대여 중인 copy 하나를 반납 처리
+      const copyId = [...this.rentedCopyIds].find(id => id.startsWith(contentId + '#'))
+      if (copyId) {
+        this.rentedCopyIds.delete(copyId)
+        this.bookshelves.forEach(shelf => shelf.returnBook(copyId))
+      }
     })
 
     this.game.events.on('rentals-updated', (rentals: RentalInfo[]) => {
@@ -88,6 +119,10 @@ export class MainScene extends Phaser.Scene {
       this.returningRentalIds.forEach(id => {
         if (!activeIds.has(id)) this.returningRentalIds.delete(id)
       })
+    })
+
+    this.game.events.on('book-arrived-at-desk', ({ rentalId, contentId }: { rentalId: string; contentId: string }) => {
+      this.addReturnCard(rentalId, contentId)
     })
 
     this.game.events.on('manual-return-requested', ({ rentalId, customerType, contentId }: {
@@ -153,8 +188,8 @@ export class MainScene extends Phaser.Scene {
     }
 
     // 새로고침 후 대여 중인 책 빈 자리 복원
-    this.rentedContentIds.forEach(id => {
-      this.bookshelves.forEach(shelf => shelf.rentBook(id))
+    this.rentedCopyIds.forEach(copyId => {
+      this.bookshelves.forEach(shelf => shelf.rentBook(copyId))
     })
   }
 
@@ -171,9 +206,9 @@ export class MainScene extends Phaser.Scene {
     })
     const wantedGenre = pickWantedGenre(profile.type, this.currentInventory)
 
-    // 대여 가능한 책 = 원하는 장르 + 현재 대여 중이 아닌 책
+    // 대여 가능한 책 = 원하는 장르 + 현재 대여 중이 아닌 권
     const rentableBooks = wantedGenre
-      ? this.currentBooks.filter(b => b.genre === wantedGenre && !this.rentedContentIds.has(b.content_id))
+      ? this.currentBooks.filter(b => b.genre === wantedGenre && !this.rentedCopyIds.has(b.copy_id))
       : []
     const hasStock = rentableBooks.length > 0
 
@@ -206,7 +241,7 @@ export class MainScene extends Phaser.Scene {
 
     // 스폰 시점에 즉시 선점
     for (const book of selectedBooks) {
-      this.rentedContentIds.add(book.content_id)
+      this.rentedCopyIds.add(book.copy_id)
     }
 
     const carriedBooks: CarriedBook[] = selectedBooks.map(b => ({
@@ -233,7 +268,7 @@ export class MainScene extends Phaser.Scene {
       carriedBooks,
       onAtShelf: () => {
         for (const book of selectedBooks) {
-          shelf.rentBook(book.content_id)
+          shelf.rentBook(book.copy_id)
         }
       },
       onAtDesk: (c) => {
@@ -293,7 +328,7 @@ export class MainScene extends Phaser.Scene {
       carriedBooks,
       onAtShelf: () => {},
       onAtDesk: () => {
-        this.game.events.emit('book-return-requested', { rentalId: rental.id })
+        this.game.events.emit('book-arrived-at-desk', { rentalId: rental.id, contentId: rental.contentId })
       },
       onExit: (c) => {
         this.customers = this.customers.filter(x => x !== c)
@@ -302,6 +337,47 @@ export class MainScene extends Phaser.Scene {
     })
 
     this.customers.push(customer)
+  }
+
+  private addReturnCard(rentalId: string, contentId: string) {
+    const CARD_W = 22
+    const CARD_H = 14
+    const index = this.returnCards.length
+    const x = this.deskCenterX - CARD_W / 2 + index * 10
+    const y = this.deskTopY - CARD_H - 4
+
+    const g = this.add.graphics()
+    g.fillStyle(0xf5f0e0, 1)
+    g.fillRect(0, 0, CARD_W, CARD_H)
+    g.lineStyle(1, 0x8b7355, 0.8)
+    g.strokeRect(0, 0, CARD_W, CARD_H)
+    g.lineStyle(0.5, 0x8b7355, 0.4)
+    g.lineBetween(3, 4, CARD_W - 3, 4)
+    g.lineBetween(3, 7, CARD_W - 3, 7)
+    g.lineBetween(3, 10, CARD_W - 3, 10)
+
+    const zone = this.add.zone(0, 0, CARD_W, CARD_H)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true })
+
+    const container = this.add.container(x, y, [g, zone])
+      .setDepth(DEPTH.FURNITURE + 1)
+
+    const card: ReturnCard = { rentalId, contentId, container }
+    this.returnCards.push(card)
+
+    zone.on('pointerdown', () => {
+      this.game.events.emit('return-card-clicked', { rentalId, contentId })
+      this.removeReturnCard(card)
+    })
+  }
+
+  private removeReturnCard(card: ReturnCard) {
+    card.container.destroy()
+    this.returnCards = this.returnCards.filter(c => c !== card)
+    this.returnCards.forEach((c, i) => {
+      c.container.setPosition(this.deskCenterX - 11 + i * 10, this.deskTopY - 18)
+    })
   }
 
   update() {
