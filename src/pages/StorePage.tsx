@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Phaser from 'phaser'
 import { GameCanvas } from '../components/GameCanvas'
+import { PageLoading } from '../components/PageLoading'
 import { supabase } from '../lib/supabase/client'
 import {
   getProfile, getGenreInventory, getBookInventory, updateProfile,
@@ -169,19 +170,8 @@ export function StorePage() {
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         <GameCanvas onGameReady={g => { gameRef.current = g; setGameReady(true) }} />
         {!profile && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'var(--color-bg)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexDirection: 'column', gap: '12px',
-          }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              border: '3px solid var(--color-shelf)',
-              borderTopColor: 'var(--color-accent)',
-              animation: 'spin 0.8s linear infinite',
-            }} />
-            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>도서관 불러오는 중...</span>
+          <div style={{ position: 'absolute', inset: 0, background: 'var(--color-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <PageLoading label="도서관 불러오는 중..." />
           </div>
         )}
       </div>

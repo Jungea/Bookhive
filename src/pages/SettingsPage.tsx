@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase/client'
 import { getProfile, updateProfile } from '../lib/supabase/store'
 import type { UserProfile } from '../lib/types'
+import { PageLoading } from '../components/PageLoading'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 10px', borderRadius: '8px',
@@ -13,18 +14,20 @@ const inputStyle: React.CSSProperties = {
 export function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [storeName, setStoreName] = useState('')
+  const [initialLoading, setInitialLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) return
+      if (!data.user) { setInitialLoading(false); return }
       const prof = await getProfile(data.user.id)
       if (prof) {
         setProfile(prof)
         setStoreName(prof.store_name)
       }
+      setInitialLoading(false)
     })
   }, [])
 
@@ -48,6 +51,8 @@ export function SettingsPage() {
   async function handleLogout() {
     await supabase.auth.signOut()
   }
+
+  if (initialLoading) return <PageLoading />
 
   return (
     <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '24px' }}>

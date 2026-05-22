@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase/client'
 import { getContentsWithRecords, deleteContent } from '../lib/supabase/content'
 import { getActivityLogs } from '../lib/supabase/reading-record'
 import { ContentCard } from '../components/ContentCard'
+import { PageLoading } from '../components/PageLoading'
 import { ContentForm } from '../components/ContentForm'
 import { ProgressForm } from '../components/ProgressForm'
 import { ActivityLogTimeline } from '../components/ActivityLogTimeline'
@@ -42,9 +43,7 @@ export function LibraryPage({ onWriteReview }: { onWriteReview?: (contentId: str
     }
   }
 
-  if (loading) return (
-    <div style={{ padding: '16px', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>불러오는 중...</div>
-  )
+  if (loading) return <PageLoading />
 
   const tagStyle: React.CSSProperties = {
     padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem',

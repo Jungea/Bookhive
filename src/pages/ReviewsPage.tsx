@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase/client'
 import { getReviews, deleteReview, type ReviewWithContent } from '../lib/supabase/review'
 import { getContentsWithRecords } from '../lib/supabase/content'
 import { ReviewEditor } from '../components/ReviewEditor'
+import { PageLoading } from '../components/PageLoading'
 import type { ContentWithRecord } from '../lib/types'
 
 type View = 'list' | 'new' | 'detail'
@@ -56,9 +57,7 @@ export function ReviewsPage() {
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric' })
 
-  if (loading) return (
-    <div style={{ padding: '16px', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>불러오는 중...</div>
-  )
+  if (loading) return <PageLoading />
 
   // 새 독후감 작성
   if (view === 'new') {
