@@ -1,6 +1,8 @@
 import Phaser from 'phaser'
 import { DEPTH } from '../depths'
 import type { BookEntry } from '../../lib/types'
+import { loadTheme } from '../config/theme'
+import type { Theme } from '../config/theme'
 
 export const SHELF_ROWS = 10
 
@@ -29,6 +31,9 @@ export class Bookshelf {
   private g: Phaser.GameObjects.Graphics
   private rentedIds: Set<string> = new Set()
   private config: BookshelfConfig
+  private currentTheme: Theme
+  private gameEvents: Phaser.Events.EventEmitter
+  private themeListener: (theme: Theme) => void
   readonly hasBooks: boolean
   readonly x: number
   readonly width: number
@@ -38,33 +43,42 @@ export class Bookshelf {
     this.hasBooks = config.books.length > 0
     this.x = config.x
     this.width = config.width
+    this.currentTheme = loadTheme()
+    this.gameEvents = config.scene.game.events
 
     this.g = config.scene.add.graphics()
     this.container = config.scene.add.container(config.x, config.y, [this.g]).setDepth(DEPTH.FURNITURE)
     this.redraw()
+
+    this.themeListener = (theme: Theme) => {
+      this.currentTheme = theme
+      this.redraw()
+    }
+    this.gameEvents.on('theme-changed', this.themeListener)
   }
 
   private redraw() {
     const { width, height, books } = this.config
+    const { fg, bg } = this.currentTheme
     const g = this.g
     g.clear()
 
-    // 책장 외곽
-    g.fillStyle(0x3d2b1a)
+    // 책장 외곽 (fg 색 테두리, bg 색 배경)
+    g.fillStyle(bg, 1)
     g.fillRect(0, -height, width, height)
-    g.lineStyle(2, 0x6b4f3a)
+    g.lineStyle(2, fg, 1)
     g.strokeRect(0, -height, width, height)
 
     // 선반 구분선
     const rowH = height / SHELF_ROWS
     for (let r = 1; r < SHELF_ROWS; r++) {
-      g.lineStyle(1, 0x6b4f3a)
+      g.lineStyle(1, fg, 0.4)
       g.lineBetween(0, -height + rowH * r, width, -height + rowH * r)
     }
 
-    // 책을 행 단위로 배치 (가변 너비)
+    // 책 배치 (가변 너비)
     const availW = width - 6
-    type SlotInfo = { w: number; contentId: string; coverColor: string | null }
+    type SlotInfo = { w: number; copyId: string }
     const rows: SlotInfo[][] = []
     let currentRow: SlotInfo[] = []
     let currentRowW = 0
@@ -75,11 +89,11 @@ export class Bookshelf {
       if (currentRowW + needed > availW && currentRow.length > 0) {
         rows.push(currentRow)
         if (rows.length >= SHELF_ROWS) break
-        currentRow = [{ w: bw, contentId: book.content_id, coverColor: book.cover_color }]
+        currentRow = [{ w: bw, copyId: book.copy_id }]
         currentRowW = bw
       } else {
         if (currentRow.length > 0) currentRowW += BOOK_GAP
-        currentRow.push({ w: bw, contentId: book.content_id, coverColor: book.cover_color })
+        currentRow.push({ w: bw, copyId: book.copy_id })
         currentRowW += bw
       }
     }
@@ -88,25 +102,15 @@ export class Bookshelf {
     rows.forEach((row, rowIdx) => {
       let xOff = 3
       const by = -height + 3 + rowIdx * rowH
-      row.forEach(({ w, contentId, coverColor }) => {
-        if (this.rentedIds.has(contentId)) {
-          // 빈 자리 — 투명한 영역 표시
-          g.fillStyle(0x2a1a0a, 0.35)
-          g.fillRect(xOff, by, w, rowH - 4)
-          g.lineStyle(1, 0x6b4f3a, 0.6)
+      row.forEach(({ w, copyId }) => {
+        if (this.rentedIds.has(copyId)) {
+          // 빈 자리: bg 색 + fg 점선 테두리
+          g.lineStyle(1, fg, 0.35)
           g.strokeRect(xOff, by, w, rowH - 4)
-        } else if (coverColor) {
-          const parsed = parseInt(coverColor.replace('#', ''), 16)
-          if (!isNaN(parsed)) {
-            g.fillStyle(parsed, 1)
-            g.fillRect(xOff, by, w, rowH - 4)
-          } else {
-            g.lineStyle(1, 0x6b4f3a, 0.8)
-            g.strokeRect(xOff, by, w, rowH - 4)
-          }
         } else {
-          g.lineStyle(1, 0x6b4f3a, 0.8)
-          g.strokeRect(xOff, by, w, rowH - 4)
+          // 책: fg 색 채움
+          g.fillStyle(fg, 1)
+          g.fillRect(xOff, by, w, rowH - 4)
         }
         xOff += w + BOOK_GAP
       })
@@ -125,6 +129,7 @@ export class Bookshelf {
   }
 
   destroy() {
+    this.gameEvents.off('theme-changed', this.themeListener)
     this.container.destroy()
   }
 }
