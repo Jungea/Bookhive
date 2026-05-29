@@ -1,5 +1,7 @@
 import Phaser from 'phaser'
 import { DEPTH } from '../depths'
+import { loadTheme } from '../config/theme'
+import type { Theme } from '../config/theme'
 
 export type CustomerState = 'entering' | 'at_shelf' | 'going_to_desk' | 'at_desk' | 'leaving'
 export type CustomerRoute = 'exit_only' | 'shelf_then_exit' | 'shelf_then_desk' | 'desk_then_exit'
@@ -9,14 +11,12 @@ export interface CarriedBook {
   thickness: number  // calcBookWidth(pages) 값 (3~12px)
 }
 
-const CUSTOMER_COLORS: Record<string, number> = {
-  student:   0xf4d03f,
-  worker:    0xe8b88a,
-  webnovel:  0xaed6f1,
-  collector: 0xd5a6a6,
+const CUSTOMER_EMOTICONS: Record<string, string> = {
+  student:   '(・∀・)',
+  worker:    '( ￣_￣)',
+  webnovel:  '(✿◕‿◕)',
+  collector: '(ΦωΦ)',
 }
-
-const BOOK_LENGTH = 16  // 가로로 누운 책의 긴 면 (px)
 
 interface CustomerConfig {
   scene: Phaser.Scene
@@ -39,31 +39,44 @@ const SPEED = 60
 
 export class Customer {
   private container: Phaser.GameObjects.Container
+  private emoText: Phaser.GameObjects.Text
   private state: CustomerState = 'entering'
   private config: CustomerConfig
   private targetX: number
-  private carriedBooksGraphics: Phaser.GameObjects.Graphics | null = null
+  private booksText: Phaser.GameObjects.Text | null = null
   private returnIcon: Phaser.GameObjects.Text | null = null
+  private currentTheme: Theme
+  private gameEvents: Phaser.Events.EventEmitter
+  private themeListener: (theme: Theme) => void
 
   constructor(config: CustomerConfig) {
     this.config = config
+    this.currentTheme = loadTheme()
+    this.gameEvents = config.scene.game.events
+
     this.targetX = config.route === 'exit_only' ? config.entryX
       : config.route === 'desk_then_exit' ? config.deskX
       : config.shelfX
 
     const { scene, x, y, customerType } = config
-    const color = CUSTOMER_COLORS[customerType] ?? 0xffffff
+    const theme = this.currentTheme
+    const emoticon = CUSTOMER_EMOTICONS[customerType] ?? '(・ω・)'
 
-    const head = scene.add.circle(0, -18, 6, 0xf5cba7)
-    const body = scene.add.rectangle(0, -6, 10, 16, color)
-    this.container = scene.add.container(x, y, [head, body]).setDepth(DEPTH.CUSTOMER)
+    this.emoText = scene.add.text(0, 0, emoticon, {
+      fontSize: '11px',
+      color: theme.fgCss,
+      fontFamily: 'Courier New',
+    }).setOrigin(0.5, 1)
+
+    this.container = scene.add.container(x, y, [this.emoText]).setDepth(DEPTH.CUSTOMER)
 
     // 반납 고객: 책 들고 입장 + 머리 위 아이콘
     if (config.route === 'desk_then_exit') {
       if (config.carriedBooks?.length) this.showCarriedBooks()
-      this.returnIcon = scene.add.text(0, -36, '↩', {
-        fontSize: '10px', color: '#ffffff',
-        backgroundColor: '#c0392b',
+      this.returnIcon = scene.add.text(0, -22, '↩', {
+        fontSize: '9px',
+        color: theme.bgCss,
+        backgroundColor: theme.fgCss,
         padding: { x: 2, y: 1 },
       }).setOrigin(0.5, 1)
       this.container.add(this.returnIcon)
@@ -72,21 +85,34 @@ export class Customer {
     // 퀘스트 손님: 장르 요청 말풍선
     if (config.isQuest && config.questGenre) {
       const label = '? ' + config.questGenre.slice(0, 5)
-      const t = scene.add.text(0, -46, label, {
-        fontSize: '8px', color: '#5d4037', fontFamily: 'Courier New',
+      const t = scene.add.text(0, -28, label, {
+        fontSize: '8px',
+        color: theme.bgCss,
+        fontFamily: 'Courier New',
       }).setOrigin(0.5, 0.5)
       const tw = t.width + 10
       const th = 14
-      const by = -46
+      const by = -28
       const g = scene.add.graphics()
-      g.fillStyle(0xfff3cd, 1)
+      g.fillStyle(theme.fg, 1)
       g.fillRoundedRect(-tw / 2, by - th / 2, tw, th, 3)
-      g.lineStyle(1, 0xc8a020, 0.8)
+      g.lineStyle(1, theme.bg, 0.6)
       g.strokeRoundedRect(-tw / 2, by - th / 2, tw, th, 3)
-      // 말풍선 꼬리
-      g.fillStyle(0xfff3cd, 1)
+      g.fillStyle(theme.fg, 1)
       g.fillTriangle(-3, by + th / 2, 3, by + th / 2, 0, by + th / 2 + 5)
       this.container.add([g, t])
+    }
+
+    this.themeListener = (newTheme: Theme) => this.applyTheme(newTheme)
+    this.gameEvents.on('theme-changed', this.themeListener)
+  }
+
+  private applyTheme(theme: Theme) {
+    this.currentTheme = theme
+    this.emoText.setStyle({ color: theme.fgCss })
+    if (this.booksText) this.booksText.setStyle({ color: theme.fgCss })
+    if (this.returnIcon) {
+      this.returnIcon.setStyle({ color: theme.bgCss, backgroundColor: theme.fgCss })
     }
   }
 
@@ -117,24 +143,16 @@ export class Customer {
     const books = this.config.carriedBooks
     if (!books?.length) return
 
-    const g = this.config.scene.add.graphics()
+    const count = Math.min(books.length, 5)
+    const booksStr = '■'.repeat(count)
 
-    // 가장 아래 책이 머리 바로 위 (-28)에서 시작, 위로 쌓임
-    let yBottom = -28
-    for (const book of books) {
-      const t = book.thickness
-      g.fillStyle(book.color, 1)
-      g.fillRect(-BOOK_LENGTH / 2, yBottom - t, BOOK_LENGTH, t)
-      g.lineStyle(0.5, 0x000000, 0.6)
-      g.strokeRect(-BOOK_LENGTH / 2, yBottom - t, BOOK_LENGTH, t)
-      // 책 내지 선
-      g.lineStyle(0.5, 0xffffff, 0.3)
-      g.lineBetween(-BOOK_LENGTH / 2 + 2, yBottom - t + 1, -BOOK_LENGTH / 2 + 2, yBottom - 1)
-      yBottom -= t + 1
-    }
+    this.booksText = this.config.scene.add.text(0, -14, booksStr, {
+      fontSize: '8px',
+      color: this.currentTheme.fgCss,
+      fontFamily: 'Courier New',
+    }).setOrigin(0.5, 1)
 
-    this.carriedBooksGraphics = g
-    this.container.add(g)
+    this.container.add(this.booksText)
   }
 
   private onReachTarget() {
@@ -147,9 +165,8 @@ export class Customer {
         })
       } else if (config.route === 'desk_then_exit') {
         this.state = 'at_desk'
-        // 책과 아이콘을 데스크에 두고 감
-        this.carriedBooksGraphics?.destroy()
-        this.carriedBooksGraphics = null
+        this.booksText?.destroy()
+        this.booksText = null
         this.returnIcon?.destroy()
         this.returnIcon = null
         config.onAtDesk(this)
@@ -179,6 +196,7 @@ export class Customer {
   }
 
   destroy() {
+    this.gameEvents.off('theme-changed', this.themeListener)
     this.container.destroy()
   }
 }

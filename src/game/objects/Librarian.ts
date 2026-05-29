@@ -1,17 +1,29 @@
 import Phaser from 'phaser'
 import { DEPTH } from '../depths'
+import { loadTheme } from '../config/theme'
+import type { Theme } from '../config/theme'
 
 export class Librarian {
-  private container: Phaser.GameObjects.Container
+  private text: Phaser.GameObjects.Text
+  private gameEvents: Phaser.Events.EventEmitter
+  private themeListener: (theme: Theme) => void
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    const head = scene.add.circle(0, -28, 7, 0xf5cba7)
-    const body = scene.add.rectangle(0, -12, 12, 20, 0x2e4057)
+    const theme = loadTheme()
+    this.gameEvents = scene.game.events
 
-    this.container = scene.add.container(x, y, [head, body]).setDepth(DEPTH.LIBRARIAN)
+    this.text = scene.add.text(x, y, '(｀・ω・´)ﾉ', {
+      fontSize: '13px',
+      color: theme.fgCss,
+      fontFamily: 'Courier New',
+    }).setOrigin(0.5, 1).setDepth(DEPTH.LIBRARIAN)
+
+    this.themeListener = (t: Theme) => this.text.setStyle({ color: t.fgCss })
+    this.gameEvents.on('theme-changed', this.themeListener)
   }
 
   destroy() {
-    this.container.destroy()
+    this.gameEvents.off('theme-changed', this.themeListener)
+    this.text.destroy()
   }
 }

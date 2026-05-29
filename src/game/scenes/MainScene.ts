@@ -10,6 +10,8 @@ import type { CustomerRoute } from '../objects/Customer'
 import type { RentalInfo } from './UIScene'
 import { CUSTOMER_PROB } from '../balance'
 import { DEPTH } from '../depths'
+import { loadTheme } from '../config/theme'
+import type { Theme } from '../config/theme'
 
 interface ReturnCard {
   rentalId: string
@@ -29,6 +31,7 @@ const DESK_H_RATIO  = 0.10
 export class MainScene extends Phaser.Scene {
   private wallGraphics!: Phaser.GameObjects.Graphics
   private floorGraphics!: Phaser.GameObjects.Graphics
+  private currentTheme: Theme = loadTheme()
   private bookshelves: Bookshelf[] = []
   private customers: Customer[] = []
   private currentInventory: GenreInventory = {}
@@ -103,6 +106,11 @@ export class MainScene extends Phaser.Scene {
       this.currentReputation = rep
     })
 
+    this.game.events.on('theme-changed', (theme: Theme) => {
+      this.currentTheme = theme
+      this.drawBackground()
+    })
+
     this.game.events.on('book-returned', ({ contentId }: { contentId: string }) => {
       // 해당 content_id의 대여 중인 copy 하나를 반납 처리
       const copyId = [...this.rentedCopyIds].find(id => id.startsWith(contentId + '#'))
@@ -141,21 +149,20 @@ export class MainScene extends Phaser.Scene {
   private drawBackground() {
     const { width, height } = this.cameras.main
     const floorY = height * FLOOR_Y_RATIO
+    const { bg, fg } = this.currentTheme
 
     this.wallGraphics?.destroy()
     this.floorGraphics?.destroy()
 
     this.wallGraphics = this.add.graphics()
-    this.wallGraphics.fillStyle(0xb0b0b0)
+    this.wallGraphics.fillStyle(bg, 1)
     this.wallGraphics.fillRect(0, 0, width, floorY)
 
     this.floorGraphics = this.add.graphics()
-    this.floorGraphics.fillStyle(0x707070)
+    this.floorGraphics.fillStyle(bg, 1)
     this.floorGraphics.fillRect(0, floorY, width, height - floorY)
-    // 벽-바닥 경계 몰딩 (튀어나온 효과: 위=하이라이트, 아래=그림자)
-    this.floorGraphics.lineStyle(1, 0xffffff, 0.6)
-    this.floorGraphics.lineBetween(0, floorY - 10, width, floorY - 10)
-    this.floorGraphics.lineStyle(1, 0x000000, 0.3)
+    // 벽-바닥 경계선 (fg 색)
+    this.floorGraphics.lineStyle(1, fg, 0.5)
     this.floorGraphics.lineBetween(0, floorY, width, floorY)
   }
 
@@ -350,13 +357,14 @@ export class MainScene extends Phaser.Scene {
     const index = this.returnCards.length
     const x = this.deskCenterX - CARD_W / 2 + index * 10
     const y = this.deskTopY - CARD_H - 4
+    const { fg, bg } = this.currentTheme
 
     const g = this.add.graphics()
-    g.fillStyle(0xf5f0e0, 1)
+    g.fillStyle(fg, 1)
     g.fillRect(0, 0, CARD_W, CARD_H)
-    g.lineStyle(1, 0x8b7355, 0.8)
+    g.lineStyle(1, bg, 0.4)
     g.strokeRect(0, 0, CARD_W, CARD_H)
-    g.lineStyle(0.5, 0x8b7355, 0.4)
+    g.lineStyle(0.5, bg, 0.4)
     g.lineBetween(3, 4, CARD_W - 3, 4)
     g.lineBetween(3, 7, CARD_W - 3, 7)
     g.lineBetween(3, 10, CARD_W - 3, 10)
